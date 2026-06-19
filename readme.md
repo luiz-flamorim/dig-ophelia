@@ -1,25 +1,130 @@
-# Dig Ophelia — Raspberry Pi deployment workflow
+# Plan
 
-Step-by-step record for copying the Camera Processor to the Pi and running it.
+Roadmap for scaling the camera processor from proof of concept to the full install. ESP32 grid dimensions must match the Pi (see `_context/display-controller_esp32/`).
 
-**Pi:** `luizamorim@192.168.1.157` (hostname: `pizero`)  
-**Project on Mac:** `~/Library/Mobile Documents/com~apple~CloudDocs/Goldsmiths/Projects/_Final Project/Proposal/Code/Camera Processor/`
+### Vocabulary
 
----
+| Term | Meaning |
+|------|---------|
+| **Tile** | One **8×16** slice of the camera mask (128 cells, **16 bytes** packed) |
+| **Module** | **2×2 tiles** = one physical panel, **one ESP32** (**64 bytes** per frame) |
+| **Install** | How many modules and how they are arranged (side by side, stacked, etc.) |
 
-## Mental model
+One module on the display:
 
 ```text
-Mac (has my code)
-  │
-  │  rsync / scp  ──────────►  Pi (192.168.1.157)
-  │
-  └── run copy commands HERE (not inside SSH)
+        tile 0  │ tile 1
+        ────────┼────────
+        tile 2  │ tile 3
+
+        → one payload (64 bytes) → one ESP32
 ```
 
-Copy **from** where the files live **to** where I need the file. If the prompt shows `luizamorim@pizero`, I'm on the Pi — run `exit` first.
 
----
+<details>
+<summary>Phase 1 — Product in progress (now)</summary>
+
+Adapting the code from the browser / p5.js proof of concept into a Pi-based product:
+
+- Background subtraction pipeline (`main.py`, `process.py`)
+- Packed binary output for ESP32 (`packer.py`, `frame_output.py`)
+- Browser debugger on the Pi (`debugger.py`, `debugger_static/`)
+- USB webcam via OpenCV/V4L2
+- Single **8×16** tile (matches current ESP32 prototype)
+
+Transport to ESP32 is still TBD (`background_subtract.py` — WiFi / API).
+
+</details>
+
+<details>
+<summary>Phase 2 — One module, one ESP32</summary>
+
+- Pi treats the scene as **2×2 tiles** (32×16 logical grid)
+- Split mask → four tile regions → combine into **one module payload** (64 bytes)
+- **One ESP32** pulls its message from the Pi API by **module ID** (e.g. `GET /api/module/0`)
+- ESP32 constants scale to the full module (e.g. 16 rows × 32 cols) — same `processMessage()` logic, larger buffer
+
+```text
+Module 0 (ESP32 #0)
+
+┌─────┬─────┐
+│ t0  │ t1  │
+├─────┼─────┤
+│ t2  │ t3  │
+└─────┴─────┘
+```
+
+Config signposts (conceptual):
+
+```python
+TILE_ROWS = 8
+TILE_COLS = 16
+MODULE_TILES_X = 2
+MODULE_TILES_Y = 2
+INSTALL_MODULES_X = 1
+INSTALL_MODULES_Y = 1
+```
+
+</details>
+
+<details>
+<summary>Phase 3 — Second module below</summary>
+
+- Add a **second module** under the first — same processing code, second ESP32 (`module/1`)
+- **8 tiles** total, **2 ESP32s**
+
+```text
+Module 0 (ESP32 #0)     Module 1 (ESP32 #1)
+
+┌─────┬─────┐           ┌─────┬─────┐
+│ t0  │ t1  │           │ t0  │ t1  │
+├─────┼─────┤           ├─────┼─────┤
+│ t2  │ t3  │           │ t2  │ t3  │
+└─────┴─────┘           └─────┴─────┘
+```
+
+Phase 3 config example:
+
+```python
+INSTALL_MODULES_X = 1
+INSTALL_MODULES_Y = 2
+```
+
+</details>
+
+<details>
+<summary>Later — more modules</summary>
+
+Scale by changing install layout only — no new processing pipeline:
+
+- One camera → one mask → split into tiles per module → pack per module → API by module ID
+- Example: `INSTALL_MODULES_X = 2`, `INSTALL_MODULES_Y = 2` → four modules, four ESP32s
+
+Pi 5 (2 GB) is sufficient for this; the work is mostly config, crop/split math, and the module API.
+
+</details>
+
+<br>
+<br>
+
+# Raspberry Pi
+
+The Pi runs the **camera processor** — it captures webcam input, applies background subtraction, and prepares binary frames for the ESP32 display controller. This section holds everything needed to **install, deploy, and maintain** that setup on the device.
+
+**Pi:** `luizamorim@192.168.1.157` (hostname: `pizero`)  
+**Code on Mac:** `Code/camera-processor/` — copy to the Pi from the Mac terminal, not from inside an SSH session.
+
+| Step        | Command / check                                              |
+|------------|--------------------------------------------------------------|
+| Copy code  | `rsync` or `scp` **from Mac**                                |
+| Deps       | `sudo apt install python3-opencv python3-numpy v4l-utils`    |
+| USB camera | `lsusb` shows camera device                                  |
+| Video dev  | `v4l2-ctl --list-devices` → note `/dev/video*` for webcam    |
+| Debugger   | `python3 debugger.py --index /dev/video0`                    |
+| Run        | `python3 main.py --index /dev/video0`                        |
+
+<details>
+<summary>Install Instructions</summary>
 
 ## 1. Copy the code to the Pi
 
@@ -27,10 +132,10 @@ Run these on my **Mac terminal** (not inside the Pi SSH session).
 
 ### Option A — rsync (recommended)
 
-Excludes `_context` (reference-only, not needed on the Pi):
+Syncs only `camera-processor/` — `_context/` lives at the repo root and stays on the Mac:
 
 ```bash
-rsync -av --exclude '_context' \
+rsync -av \
   "/Users/luizamorim/Library/Mobile Documents/com~apple~CloudDocs/Goldsmiths/Projects/_Final Project/Proposal/Code/camera-processor/" \
   luizamorim@192.168.1.157:~/camera-processor/
 ```
@@ -45,7 +150,7 @@ scp -r \
   luizamorim@192.168.1.157:~/
 ```
 
-This copies the whole folder (including `_context`). Safe to ignore or delete `_context` on the Pi.
+Same scope as rsync — only the `camera-processor/` folder, not repo-root `_context/`.
 
 ### Verify on the Pi
 
@@ -156,118 +261,36 @@ Once everything works manually:
 sudo systemctl enable --now camera-processor
 ```
 
+</details>
 
-## Quick checklist
+<br>
+<br>
 
-| Step        | Command / check                                              |
-|------------|--------------------------------------------------------------|
-| Copy code  | `rsync` or `scp` **from Mac**                                |
-| Deps       | `sudo apt install python3-opencv python3-numpy v4l-utils`    |
-| USB camera | `lsusb` shows camera device                                  |
-| Video dev  | `v4l2-ctl --list-devices` → note `/dev/video*` for webcam    |
-| Debugger   | `python3 debugger.py --index /dev/video0`                    |
-| Run        | `python3 main.py --index /dev/video0`                        |
 
----
-
-## Plan
-
-Roadmap for scaling the camera processor from proof of concept to the full install. ESP32 grid dimensions must match the Pi (see `_context/display-controller_esp32/`).
-
-### Vocabulary
-
-| Term | Meaning |
-|------|---------|
-| **Tile** | One **8×16** slice of the camera mask (128 cells, **16 bytes** packed) |
-| **Module** | **2×2 tiles** = one physical panel, **one ESP32** (**64 bytes** per frame) |
-| **Install** | How many modules and how they are arranged (side by side, stacked, etc.) |
-
-One module on the display:
-
-```text
-        tile 0  │ tile 1
-        ────────┼────────
-        tile 2  │ tile 3
-
-        → one payload (64 bytes) → one ESP32
-```
-
-### Phase 1 — Product in progress (now)
-
-Adapting the code from the browser / p5.js proof of concept into a Pi-based product:
-
-- Background subtraction pipeline (`main.py`, `process.py`)
-- Packed binary output for ESP32 (`packer.py`, `frame_output.py`)
-- Browser debugger on the Pi (`debugger.py`, `debugger_static/`)
-- USB webcam via OpenCV/V4L2
-- Single **8×16** tile (matches current ESP32 prototype)
-
-Transport to ESP32 is still TBD (`background_subtract.py` — WiFi / API).
-
-### Phase 2 — One module, one ESP32
-
-- Pi treats the scene as **2×2 tiles** (32×16 logical grid)
-- Split mask → four tile regions → combine into **one module payload** (64 bytes)
-- **One ESP32** pulls its message from the Pi API by **module ID** (e.g. `GET /api/module/0`)
-- ESP32 constants scale to the full module (e.g. 16 rows × 32 cols) — same `processMessage()` logic, larger buffer
-
-```text
-Module 0 (ESP32 #0)
-
-┌─────┬─────┐
-│ t0  │ t1  │
-├─────┼─────┤
-│ t2  │ t3  │
-└─────┴─────┘
-```
-
-Config signposts (conceptual):
-
-```python
-TILE_ROWS = 8
-TILE_COLS = 16
-MODULE_TILES_X = 2
-MODULE_TILES_Y = 2
-INSTALL_MODULES_X = 1
-INSTALL_MODULES_Y = 1
-```
-
-### Phase 3 — Second module below
-
-- Add a **second module** under the first — same processing code, second ESP32 (`module/1`)
-- **8 tiles** total, **2 ESP32s**
-
-```text
-Module 0 (ESP32 #0)     Module 1 (ESP32 #1)
-
-┌─────┬─────┐           ┌─────┬─────┐
-│ t0  │ t1  │           │ t0  │ t1  │
-├─────┼─────┤           ├─────┼─────┤
-│ t2  │ t3  │           │ t2  │ t3  │
-└─────┴─────┘           └─────┴─────┘
-```
-
-Phase 3 config example:
-
-```python
-INSTALL_MODULES_X = 1
-INSTALL_MODULES_Y = 2
-```
-
-### Later — more modules
-
-Scale by changing install layout only — no new processing pipeline:
-
-- One camera → one mask → split into tiles per module → pack per module → API by module ID
-- Example: `INSTALL_MODULES_X = 2`, `INSTALL_MODULES_Y = 2` → four modules, four ESP32s
-
-Pi 5 (2 GB) is sufficient for this; the work is mostly config, crop/split math, and the module API.
-
----
 
 # Journal
 
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
+
+<details>
+<summary>2026-06-19 — readme restructure</summary>
+
+- reorganised **readme.md** so the **Plan** (scaling roadmap) comes first — tiles, modules, install phases — instead of being buried below the Pi deployment steps
+- folded each **Plan phase** into collapsible `<details>` blocks so the page is easier to scan without losing the detail
+- split out a dedicated **Raspberry Pi** section with a short intro on what the Pi actually does in the pipeline, and moved the **quick checklist** to the top of that section for at-a-glance reference
+- tucked the full **install instructions** (copy, deps, hardware, debugger, systemd) inside a collapsible block — less wall of text when I'm not deploying
+- updated **rsync/scp** notes: `_context/` now lives at the **repo root**, not inside `camera-processor/`, so the copy commands only sync the deploy folder and no longer need `--exclude '_context'`
+- dropped the old **mental model** rsync diagram — the Mac-vs-Pi reminder is now a one-liner under the Pi header
+
+</details>
+
+<details>
+<summary>2026-06-16 — server / API launch attempt</summary>
+
+- had a quick go during the day at getting a **server** running and launching the **API** so the ESP32 can pull frames from the Pi — didn't get it working
+- left it there for now; planning to keep trying over the rest of the week
+
+</details>
 
 <details>
 <summary>2026-06-11 — debugger UI, scaling plan, Pi 5</summary>
