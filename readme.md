@@ -273,14 +273,18 @@ sudo systemctl enable --now camera-processor
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
 
 <details>
-<summary>2026-06-19 — readme restructure</summary>
+<summary>2026-06-19 — readme restructure + ESP32 pipeline</summary>
 
-- reorganised **readme.md** so the **Plan** (scaling roadmap) comes first — tiles, modules, install phases — instead of being buried below the Pi deployment steps
-- folded each **Plan phase** into collapsible `<details>` blocks so the page is easier to scan without losing the detail
-- split out a dedicated **Raspberry Pi** section with a short intro on what the Pi actually does in the pipeline, and moved the **quick checklist** to the top of that section for at-a-glance reference
-- tucked the full **install instructions** (copy, deps, hardware, debugger, systemd) inside a collapsible block — less wall of text when I'm not deploying
-- updated **rsync/scp** notes: `_context/` now lives at the **repo root**, not inside `camera-processor/`, so the copy commands only sync the deploy folder and no longer need `--exclude '_context'`
-- dropped the old **mental model** rsync diagram — the Mac-vs-Pi reminder is now a one-liner under the Pi header
+- reorganised **readme.md** — Plan first, collapsible Pi deploy sections, updated rsync notes for repo-root `_context/`
+- built Pi **HTTP API** (`GET /api/module/{id}`) serving raw **16-byte** frames for Phase 1 (one 8×16 tile); tested with `curl | xxd` before touching the ESP32
+- created **`display-controller/`** at repo root — promoted firmware from `_context`, split into **`api_client`**, **`display_renderer`**, and a thin `.ino` glue file
+- ESP32 **polls WiFi** (~100 ms) instead of Serial — same **MSB-first `processMessage()`** bit packing as the Pi (`packer.py`)
+- **config-driven** tile/module dimensions in `config.h` — Phase 2 is just `MODULE_TILES_X/Y = 2` (64 bytes, 32×16 grid); each board only needs its **`MODULE_ID`**
+- kept **`FIX_REVERSED_LAST_TWO_ROWS`** workaround from the old firmware for the faulty display PCB
+- set up **PlatformIO / PioArduino** in Cursor (`platformio.ini`) so I can build and flash without moving files into `src/`
+- **`config.h`** gitignored for WiFi credentials; `config.example.h` committed as the template
+- **end-to-end working** — camera on Pi, debugger in browser, ESP32 driving the matrix from the API
+- Pi Zero **froze under load** once; after a hard kill `/dev/video0` vanished — reboot, find the webcam with `v4l2-ctl`, run with `--fps 5`
 
 </details>
 

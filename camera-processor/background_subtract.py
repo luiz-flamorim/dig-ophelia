@@ -64,7 +64,7 @@ def main() -> int:
 
         grid, _, _ = process_frame(frame, settings, background=background)
         payload = frame_output.build_payload(grid)
-        # TODO: send payload to ESP32 over WiFi
+        _ = payload  # headless loop — use server.py for WiFi transport
 
         elapsed = time.perf_counter() - loop_start
         time.sleep(max(0, interval - elapsed))

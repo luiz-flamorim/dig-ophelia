@@ -4,6 +4,10 @@ __pycache__/
 
 _context/
 
+# ESP32 local config (copy from config.example.h)
+display-controller/config.h
+display-controller/.pio/
+
 # Cursor agent rules (local only)
 .cursor/
 

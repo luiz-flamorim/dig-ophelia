@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Production camera processor — background subtraction, payload ready for transport."""
+"""Production camera processor — background subtraction + ESP32 API."""
 
 from __future__ import annotations
 
-import background_subtract
+import server
 
 if __name__ == "__main__":
-    raise SystemExit(background_subtract.main())
+    raise SystemExit(server.main())
