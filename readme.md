@@ -22,7 +22,7 @@ One module on the display:
 
 
 <details>
-<summary>Phase 1 — Product in progress (now)</summary>
+<summary>Phase 1 — Product in progress</summary>
 
 Adapting the code from the browser / p5.js proof of concept into a Pi-based product:
 
@@ -37,7 +37,7 @@ Transport to ESP32 is still TBD (`background_subtract.py` — WiFi / API).
 </details>
 
 <details>
-<summary>Phase 2 — One module, one ESP32</summary>
+<summary>Phase 2 — One module, one ESP32 **(Current)** </summary>
 
 - Pi treats the scene as **2×2 tiles** (32×16 logical grid)
 - Split mask → four tile regions → combine into **one module payload** (64 bytes)
@@ -285,6 +285,7 @@ Informal log of what happened as the project moved forward — meetings, decisio
 - **`config.h`** gitignored for WiFi credentials; `config.example.h` committed as the template
 - **end-to-end working** — camera on Pi, debugger in browser, ESP32 driving the matrix from the API
 - Pi Zero **froze under load** once; after a hard kill `/dev/video0` vanished — reboot, find the webcam with `v4l2-ctl`, run with `--fps 5`
+- Moved to **Phase 2**
 
 </details>
 
