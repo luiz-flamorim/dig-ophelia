@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.py[cod]
+
+_context/
+
+# Cursor agent rules (local only)
+.cursor/
+
+# macOS
+.DS_Store

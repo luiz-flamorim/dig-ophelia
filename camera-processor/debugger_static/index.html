@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dig Ophelia — Camera Debugger</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/debugger.css" />
+  </head>
+  <body>
+    <h1 id="title">Camera Debugger</h1>
+
+    <div id="status-bar">
+      <span id="status-fps">FPS: —</span>
+      <span id="status-bg">Background: —</span>
+      <span id="status-host">Host: —</span>
+    </div>
+
+    <div id="main-layout">
+      <div id="matrix-panel">
+        <h2>Matrix</h2>
+        <div id="matrix-view">
+          <img id="stream" alt="Processed mask" />
+          <div id="grid-display"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="controls">
+      <div class="slider-container">
+        <label for="bg-threshold-slider">Difference threshold</label>
+        <div class="slider-wrapper">
+          <input
+            type="range"
+            id="bg-threshold-slider"
+            class="threshold-slider"
+            min="0"
+            max="255"
+            step="1"
+            value="30"
+          />
+        </div>
+      </div>
+
+      <div class="buttons-container">
+        <button id="preview-btn" class="toggle-btn">Processed view</button>
+        <button id="invert-btn" class="toggle-btn">Invert</button>
+        <button id="bg-capture-btn" class="toggle-btn">Capture background</button>
+      </div>
+    </div>
+
+    <script src="/static/debugger.js"></script>
+  </body>
+</html>
