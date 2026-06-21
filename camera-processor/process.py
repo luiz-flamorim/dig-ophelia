@@ -77,7 +77,11 @@ def clean_mask(mask: np.ndarray, settings: ProcessingSettings) -> np.ndarray:
 
 
 def grid_from_resize(mask: np.ndarray, invert: bool = False) -> np.ndarray:
-    small = cv2.resize(mask, (config.MATRIX_COLS, config.MATRIX_ROWS), interpolation=cv2.INTER_AREA)
+    small = cv2.resize(
+        mask,
+        (config.INSTALL_COLS, config.INSTALL_ROWS),
+        interpolation=cv2.INTER_AREA,
+    )
     grid = (small > 0).astype(np.uint8)
     if invert:
         grid = 1 - grid
@@ -114,14 +118,15 @@ def draw_grid_overlay(frame: np.ndarray, grid: np.ndarray) -> np.ndarray:
     """Draw grid cell rectangles on a BGR frame."""
     output = frame.copy()
     height, width = output.shape[:2]
-    cell_w = width // config.MATRIX_COLS
-    cell_h = height // config.MATRIX_ROWS
+    grid_rows, grid_cols = grid.shape
+    cell_w = width // grid_cols
+    cell_h = height // grid_rows
     cell_tint = np.full((cell_h, cell_w, 3), (40, 40, 220), dtype=np.uint8)
 
-    for row in range(config.MATRIX_ROWS):
+    for row in range(grid_rows):
         y1 = row * cell_h
         y2 = (row + 1) * cell_h
-        for col in range(config.MATRIX_COLS):
+        for col in range(grid_cols):
             x1 = col * cell_w
             x2 = (col + 1) * cell_w
 
@@ -136,8 +141,9 @@ def draw_grid_overlay(frame: np.ndarray, grid: np.ndarray) -> np.ndarray:
 
 def grid_to_ascii(grid: np.ndarray) -> str:
     lines = []
-    for row in range(config.MATRIX_ROWS):
-        chars = "".join("#" if grid[row, col] else "." for col in range(config.MATRIX_COLS))
+    grid_rows, grid_cols = grid.shape
+    for row in range(grid_rows):
+        chars = "".join("#" if grid[row, col] else "." for col in range(grid_cols))
         lines.append(chars)
     return "\n".join(lines)
 

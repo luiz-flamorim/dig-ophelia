@@ -9,8 +9,14 @@ import packer
 
 
 def build_payload(grid: np.ndarray) -> bytes:
-    """Pack a grid into a fixed-size byte frame for the display controller."""
+    """Pack a module-sized grid into a fixed-size byte frame for the display controller."""
+    rows, cols = grid.shape
+    if (rows, cols) != (config.MODULE_ROWS, config.MODULE_COLS):
+        raise ValueError(
+            f"Expected module grid {(config.MODULE_ROWS, config.MODULE_COLS)}, got {(rows, cols)}"
+        )
+
     payload = packer.pack_grid(grid)
-    if len(payload) != config.BYTES_PER_FRAME:
-        raise ValueError(f"Expected {config.BYTES_PER_FRAME} bytes, got {len(payload)}")
+    if len(payload) != config.BYTES_PER_MODULE:
+        raise ValueError(f"Expected {config.BYTES_PER_MODULE} bytes, got {len(payload)}")
     return payload

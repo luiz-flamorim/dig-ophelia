@@ -10,7 +10,7 @@ import time
 
 import camera
 import config
-import frame_output
+import modules
 from process import ProcessingSettings, capture_background, process_frame
 
 _running = True
@@ -63,8 +63,7 @@ def main() -> int:
             continue
 
         grid, _, _ = process_frame(frame, settings, background=background)
-        payload = frame_output.build_payload(grid)
-        _ = payload  # headless loop — use server.py for WiFi transport
+        _ = modules.build_module_payloads(grid)  # headless loop — use server.py for WiFi transport
 
         elapsed = time.perf_counter() - loop_start
         time.sleep(max(0, interval - elapsed))

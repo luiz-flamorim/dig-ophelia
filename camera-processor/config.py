@@ -1,9 +1,53 @@
 """Shared configuration for the Dig Ophelia camera processor."""
 
-MATRIX_COLS = 16
-MATRIX_ROWS = 8
-TOTAL_CELLS = MATRIX_COLS * MATRIX_ROWS
-BYTES_PER_FRAME = (TOTAL_CELLS + 7) // 8
+# --- Tile (fixed hardware unit — keep in sync with ESP32 TILE_ROWS / TILE_COLS) ---
+TILE_ROWS = 8
+TILE_COLS = 16
+
+# --- Tiles per module (one ESP32) — set to match physical wiring ---
+MODULE_TILES_X = 1
+MODULE_TILES_Y = 1
+
+# --- Module layout in the install ---
+INSTALL_MODULES_X = 1
+INSTALL_MODULES_Y = 1
+
+# --- Derived layout (recomputed by recompute_layout()) ---
+MODULE_ROWS = 0
+MODULE_COLS = 0
+MODULE_CELLS = 0
+BYTES_PER_MODULE = 0
+INSTALL_ROWS = 0
+INSTALL_COLS = 0
+INSTALL_CELLS = 0
+MODULE_COUNT = 0
+
+# Debugger / API aliases (full install grid)
+MATRIX_ROWS = 0
+MATRIX_COLS = 0
+
+
+def recompute_layout() -> None:
+    """Recompute derived constants after changing tile/module/install knobs."""
+    global MODULE_ROWS, MODULE_COLS, MODULE_CELLS, BYTES_PER_MODULE
+    global INSTALL_ROWS, INSTALL_COLS, INSTALL_CELLS, MODULE_COUNT
+    global MATRIX_ROWS, MATRIX_COLS
+
+    MODULE_ROWS = TILE_ROWS * MODULE_TILES_Y
+    MODULE_COLS = TILE_COLS * MODULE_TILES_X
+    MODULE_CELLS = MODULE_ROWS * MODULE_COLS
+    BYTES_PER_MODULE = (MODULE_CELLS + 7) // 8
+
+    INSTALL_ROWS = MODULE_ROWS * INSTALL_MODULES_Y
+    INSTALL_COLS = MODULE_COLS * INSTALL_MODULES_X
+    INSTALL_CELLS = INSTALL_ROWS * INSTALL_COLS
+    MODULE_COUNT = INSTALL_MODULES_X * INSTALL_MODULES_Y
+
+    MATRIX_ROWS = INSTALL_ROWS
+    MATRIX_COLS = INSTALL_COLS
+
+
+recompute_layout()
 
 CAMERA_INDEX = 0
 CAMERA_WIDTH = 160
@@ -31,7 +75,6 @@ BACKGROUND_WARMUP_S = 3
 
 SERVER_HOST = "0.0.0.0"
 SERVER_PORT = 8080
-MODULE_COUNT = 1
 
 DEBUG_HOST = "0.0.0.0"
 DEBUG_PORT = 8080

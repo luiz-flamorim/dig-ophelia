@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 
-import config
-
 
 def pack_grid(grid: np.ndarray) -> bytes:
     """
@@ -14,10 +12,10 @@ def pack_grid(grid: np.ndarray) -> bytes:
     Bit 7 of byte 0 = cell (row=0, col=0), matching ESP32 processMessage().
     """
     flat = np.asarray(grid, dtype=np.uint8).reshape(-1)
-    if flat.size != config.TOTAL_CELLS:
-        raise ValueError(f"Expected {config.TOTAL_CELLS} cells, got {flat.size}")
+    total_cells = flat.size
+    bytes_count = (total_cells + 7) // 8
 
-    packed = bytearray(config.BYTES_PER_FRAME)
+    packed = bytearray(bytes_count)
     for i, cell in enumerate(flat):
         if cell:
             byte_index = i // 8
@@ -26,14 +24,16 @@ def pack_grid(grid: np.ndarray) -> bytes:
     return bytes(packed)
 
 
-def unpack_grid(data: bytes) -> np.ndarray:
+def unpack_grid(data: bytes, rows: int, cols: int) -> np.ndarray:
     """Unpack bytes back into a matrix grid (for debugging)."""
-    if len(data) != config.BYTES_PER_FRAME:
-        raise ValueError(f"Expected {config.BYTES_PER_FRAME} bytes, got {len(data)}")
+    total_cells = rows * cols
+    bytes_count = (total_cells + 7) // 8
+    if len(data) != bytes_count:
+        raise ValueError(f"Expected {bytes_count} bytes, got {len(data)}")
 
-    grid = np.zeros(config.TOTAL_CELLS, dtype=np.uint8)
-    for i in range(config.TOTAL_CELLS):
+    grid = np.zeros(total_cells, dtype=np.uint8)
+    for i in range(total_cells):
         byte_index = i // 8
         bit_index = 7 - (i % 8)
         grid[i] = (data[byte_index] >> bit_index) & 1
-    return grid.reshape(config.MATRIX_ROWS, config.MATRIX_COLS)
+    return grid.reshape(rows, cols)

@@ -175,8 +175,18 @@ class AppHandler(BaseHTTPRequestHandler):
         if path == "/api/config":
             return self._send_json(
                 {
-                    "matrix_rows": config.MATRIX_ROWS,
-                    "matrix_cols": config.MATRIX_COLS,
+                    "matrix_rows": config.INSTALL_ROWS,
+                    "matrix_cols": config.INSTALL_COLS,
+                    "tile_rows": config.TILE_ROWS,
+                    "tile_cols": config.TILE_COLS,
+                    "module_tiles_x": config.MODULE_TILES_X,
+                    "module_tiles_y": config.MODULE_TILES_Y,
+                    "module_rows": config.MODULE_ROWS,
+                    "module_cols": config.MODULE_COLS,
+                    "install_modules_x": config.INSTALL_MODULES_X,
+                    "install_modules_y": config.INSTALL_MODULES_Y,
+                    "module_count": config.MODULE_COUNT,
+                    "bytes_per_module": config.BYTES_PER_MODULE,
                 }
             )
 
@@ -203,7 +213,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         "fps": round(state.fps, 2),
                         "frame_seq": state.frame_seq,
                         "module_count": config.MODULE_COUNT,
-                        "bytes_per_module": config.BYTES_PER_FRAME,
+                        "bytes_per_module": config.BYTES_PER_MODULE,
                         "has_background": state.background is not None,
                     }
                 )
@@ -345,7 +355,9 @@ def main() -> int:
     ip = local_ip()
     print(f"Running at http://{ip}:{args.port}")
     print(f"Debugger UI: http://{ip}:{args.port}/")
-    print(f"ESP32 poll:  GET /api/module/0  ({config.BYTES_PER_FRAME} bytes)")
+    print(f"Install grid: {config.INSTALL_COLS}×{config.INSTALL_ROWS}  "
+          f"({config.MODULE_COUNT} module(s), {config.BYTES_PER_MODULE} bytes each)")
+    print(f"ESP32 poll:  GET /api/module/{{id}}  (0–{config.MODULE_COUNT - 1})")
     print("Press Ctrl+C to stop.")
 
     try:

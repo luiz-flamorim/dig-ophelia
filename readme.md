@@ -1,6 +1,6 @@
 # Plan
 
-Roadmap for scaling the camera processor from proof of concept to the full install. ESP32 grid dimensions must match the Pi (see `_context/display-controller_esp32/`).
+Roadmap for scaling the camera processor from proof of concept to the full install. ESP32 grid dimensions must match the Pi (see `display-controller/config.example.h`).
 
 ### Vocabulary
 
@@ -22,7 +22,7 @@ One module on the display:
 
 
 <details>
-<summary>Phase 1 — Product in progress</summary>
+<summary>Phase 1 — One tile, one ESP32 **(Complete)**</summary>
 
 Adapting the code from the browser / p5.js proof of concept into a Pi-based product:
 
@@ -31,18 +31,18 @@ Adapting the code from the browser / p5.js proof of concept into a Pi-based prod
 - Browser debugger on the Pi (`debugger.py`, `debugger_static/`)
 - USB webcam via OpenCV/V4L2
 - Single **8×16** tile (matches current ESP32 prototype)
-
-Transport to ESP32 is still TBD (`background_subtract.py` — WiFi / API).
+- HTTP server on the Pi — ESP32 polls `GET /api/module/{id}` (`server.py`)
 
 </details>
 
 <details>
-<summary>Phase 2 — One module, one ESP32 **(Current)** </summary>
+<summary>Phase 2 — One module, one ESP32 **(In progress)**</summary>
 
 - Pi treats the scene as **2×2 tiles** (32×16 logical grid)
 - Split mask → four tile regions → combine into **one module payload** (64 bytes)
 - **One ESP32** pulls its message from the Pi API by **module ID** (e.g. `GET /api/module/0`)
 - ESP32 constants scale to the full module (e.g. 16 rows × 32 cols) — same `processMessage()` logic, larger buffer
+- Optional **2-tile test** before full 2×2 — set `MODULE_TILES_X/Y` to **2×1** (side by side) or **1×2** (stacked) on Pi and ESP32 → **32 bytes**, same pipeline
 
 ```text
 Module 0 (ESP32 #0)
@@ -90,6 +90,14 @@ INSTALL_MODULES_X = 1
 INSTALL_MODULES_Y = 2
 ```
 
+**User detection** — idle when no one is present, active when someone steps in. No debugger or manual background capture in the live install. Options to explore (same mask → grid → pack pipeline; only the mask source changes):
+
+- **ML person segmentation** (ML5-style — e.g. MediaPipe selfie segmentation, TFLite BodyPix-class models; target **Pi 5 8 GB**) — no stored background; empty room = idle naturally
+- **Presence gate** — keep current background subtraction; blank the grid unless enough mask cells / contour area exceed a threshold
+- **Adaptive background** — OpenCV `BackgroundSubtractorMOG2` / KNN; learns the empty scene over time, no fixed snapshot
+- **Auto-recapture when idle** — refresh the background snapshot after N seconds with no significant motion
+- **Motion trigger** — frame differencing only; idle until movement, then show disturbance (lo-fi, no background model)
+
 </details>
 
 <details>
@@ -100,7 +108,7 @@ Scale by changing install layout only — no new processing pipeline:
 - One camera → one mask → split into tiles per module → pack per module → API by module ID
 - Example: `INSTALL_MODULES_X = 2`, `INSTALL_MODULES_Y = 2` → four modules, four ESP32s
 
-Pi 5 (2 GB) is sufficient for this; the work is mostly config, crop/split math, and the module API.
+Pi 5 is sufficient for this; the work is mostly config, crop/split math, and the module API.
 
 </details>
 
@@ -136,7 +144,7 @@ Syncs only `camera-processor/` — `_context/` lives at the repo root and stays 
 
 ```bash
 rsync -av \
-  "/Users/luizamorim/Library/Mobile Documents/com~apple~CloudDocs/Goldsmiths/Projects/_Final Project/Proposal/Code/camera-processor/" \
+  "/Users/luizamorim/Library/Mobile Documents/com~apple~CloudDocs/Goldsmiths/Projects/_Final Project/Code/camera-processor/" \
   luizamorim@192.168.1.157:~/camera-processor/
 ```
 
@@ -146,7 +154,7 @@ Note: destination is `luizamorim@192.168.1.157:~/camera-processor/` — no extra
 
 ```bash
 scp -r \
-  "/Users/luizamorim/Library/Mobile Documents/com~apple~CloudDocs/Goldsmiths/Projects/_Final Project/Proposal/Code/camera-processor" \
+  "/Users/luizamorim/Library/Mobile Documents/com~apple~CloudDocs/Goldsmiths/Projects/_Final Project/Code/camera-processor" \
   luizamorim@192.168.1.157:~/
 ```
 
@@ -197,7 +205,7 @@ Confirm the Pi sees the webcam:
 lsusb
 ```
 
-Success looks like a second (or third) device line, e.g. `ARC International Camera`. If only the root hub appears, the camera isn't detected — see Common issues.
+Success looks like a second (or third) device line, e.g. `ARC International Camera`. If only the root hub appears, the camera isn't detected.
 
 Find which `/dev/video*` belongs to the webcam (not Pi internal codec nodes):
 
@@ -206,29 +214,33 @@ sudo apt install -y v4l-utils
 v4l2-ctl --list-devices
 ```
 
-Note the path under the camera name (e.g. `/dev/video0`). Use that path for `debugger.py`:
+Note the path under the camera name (e.g. `/dev/video0`). Use this path in the steps below.
+
+---
+
+## 4. Production loop
+
+Run the camera processor headless:
 
 ```bash
-python3 debugger.py --index /dev/video0
+cd ~/camera-processor
+python3 main.py --index /dev/video0
 ```
-
-
-### Background subtraction — production loop
 
 Useful flags:
 
 ```bash
 # Tune motion sensitivity (higher = less sensitive)
-python3 main.py --bg-threshold 30
+python3 main.py --index /dev/video0 --bg-threshold 30
 
 # Invert detection if silhouette is backwards
-python3 main.py --invert
+python3 main.py --index /dev/video0 --invert
 
 # Lower FPS if the Pi struggles
-python3 main.py --fps 5
+python3 main.py --index /dev/video0 --fps 5
 
 # Cleaner mask (slower)
-python3 main.py --morphology
+python3 main.py --index /dev/video0 --morphology
 ```
 
 ---
@@ -266,11 +278,93 @@ sudo systemctl enable --now camera-processor
 <br>
 <br>
 
+# ESP32
+
+The **display controller** firmware lives in `display-controller/` at the repo root — build and flash from the Mac (PlatformIO), not from the Pi. Each module gets one ESP32; grid dimensions must match `camera-processor/config.py`.
+
+| Step       | Command / check                                              |
+|-----------|--------------------------------------------------------------|
+| Config    | Copy `config.example.h` → `config.h` (gitignored)            |
+| Layout    | `MODULE_TILES_X/Y` match Pi; set `MODULE_ID` per board       |
+| Network   | `WIFI_SSID`, `WIFI_PASS`, `PI_HOST` (Pi IP on same WiFi)    |
+| Build     | Open `display-controller/` in Cursor with PlatformIO         |
+| Flash     | Upload via PlatformIO (USB to ESP32)                         |
+| Verify    | Serial monitor @ 115200 — WiFi connect, row test, polling    |
+
+<details>
+<summary>Install Instructions</summary>
+
+## 1. Create config.h
+
+From the `display-controller/` folder:
+
+```bash
+cp config.example.h config.h
+```
+
+Edit `config.h`:
+
+- **WiFi** — `WIFI_SSID`, `WIFI_PASS`
+- **Pi address** — `PI_HOST` (e.g. `192.168.1.157`), `PI_PORT` (default `8080`)
+- **Module identity** — `MODULE_ID` (`0` for the first module; `1` for the second in Phase 3)
+- **Tile layout** — `MODULE_TILES_X`, `MODULE_TILES_Y` must match `camera-processor/config.py`
+
+`config.h` is gitignored — credentials stay local.
+
+---
+
+## 2. Build and flash (PlatformIO)
+
+Open **`display-controller/`** as the project root in Cursor (see `platformio.ini`).
+
+- **Build** — PlatformIO build task
+- **Upload** — connect ESP32 via USB, then PlatformIO upload
+- **Monitor** — Serial @ `115200` to confirm WiFi and frame polling
+
+On boot the board runs a row test (`RUN_ROW_TEST_ON_BOOT`), then polls `GET http://{PI_HOST}:{PI_PORT}/api/module/{MODULE_ID}` every ~100 ms.
+
+---
+
+## 3. Sync with the Pi
+
+Before relying on the display:
+
+1. Pi is running `main.py` (see Raspberry Pi section above)
+2. `MODULE_TILES_X/Y` and payload size match on both sides
+3. ESP32 and Pi are on the **same WiFi network**
+4. Quick check from any machine on the LAN:
+
+```bash
+curl -s "http://192.168.1.157:8080/api/health"
+curl -s "http://192.168.1.157:8080/api/module/0" | xxd | head
+```
+
+Expected byte count must match `BYTES_PER_MODULE` in both `config.h` and Pi `config.py`.
+
+</details>
+
+<br>
+<br>
+
 
 
 # Journal
 
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
+
+<details>
+<summary>2026-06-21 — tile/module config refactor, Phase 3 prep</summary>
+
+- refactored the Pi pipeline around a proper **tile → module → install** layout in **`config.py`** — `TILE_ROWS/COLS`, `MODULE_TILES_X/Y`, `INSTALL_MODULES_X/Y`, with **`recompute_layout()`** deriving grid size, byte count, and module count
+- **`modules.py`** now splits the full install mask into per-module regions by ID — ready for **Phase 3** (second module below) without rewriting the processing loop
+- made **`packer.py`** size-agnostic so it packs any grid shape; **`frame_output.py`** validates module-sized payloads
+- **`process.py`** resizes to the full install grid; debugger overlay follows actual grid dimensions
+- **`server.py`** exposes the layout knobs on **`/api/config`** and clearer startup logging for ESP32 polling
+- aligned **`display-controller/config.example.h`** with the same vocabulary — notes for stepping through **2×1 / 1×2** tile wiring before the full **2×2** module
+- fixed **rsync/scp paths** in the readme (was still pointing at the old Proposal folder)
+- still running **1×1 tile / 1 module** in config for now — next step is wiring up more tiles on the PCB and bumping the knobs to match
+
+</details>
 
 <details>
 <summary>2026-06-20 — displays arrived, PCB solder + tile tests</summary>

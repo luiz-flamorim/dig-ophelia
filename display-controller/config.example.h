@@ -1,12 +1,13 @@
 #pragma once
 
 // Copy this file to config.h and fill in your WiFi credentials.
+// Keep MODULE_TILES_X/Y in sync with camera-processor/config.py.
 
-// --- Tile (fixed — matches Pi config.MATRIX_ROWS / MATRIX_COLS) ---
+// --- Tile (fixed — matches Pi config.TILE_ROWS / TILE_COLS) ---
 constexpr uint8_t TILE_ROWS = 8;
 constexpr uint8_t TILE_COLS = 16;
 
-// --- Tiles per module (Phase 1: 1×1, Phase 2: 2×2) ---
+// --- Tiles per module (Phase 1: 1×1, two-tile test: 2×1 or 1×2, full module: 2×2) ---
 constexpr uint8_t MODULE_TILES_X = 1;
 constexpr uint8_t MODULE_TILES_Y = 1;
 
@@ -16,7 +17,7 @@ constexpr uint8_t MODULE_COLS = TILE_COLS * MODULE_TILES_X;
 constexpr uint16_t MODULE_CELLS = MODULE_ROWS * MODULE_COLS;
 constexpr uint16_t BYTES_PER_MODULE = (MODULE_CELLS + 7) / 8;
 
-// --- Which Pi endpoint this board polls ---
+// --- Which Pi endpoint this board polls (install layout is Pi config.INSTALL_MODULES_*) ---
 constexpr uint8_t MODULE_ID = 0;
 
 // --- Network ---
