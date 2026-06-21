@@ -273,6 +273,16 @@ sudo systemctl enable --now camera-processor
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
 
 <details>
+<summary>2026-06-20 — displays arrived, PCB solder + tile tests</summary>
+
+- received **65 displays** and soldered them into the PCB
+- tested each one individually as a **single tile** — all good, happy with the results
+- hardware side of **Phase 2** feels real now: one tile working on the board matches where the code already is
+- ordered **700+ displays** for assembling the final tiles
+
+</details>
+
+<details>
 <summary>2026-06-19 — readme restructure + ESP32 pipeline</summary>
 
 - reorganised **readme.md** — Plan first, collapsible Pi deploy sections, updated rsync notes for repo-root `_context/`
