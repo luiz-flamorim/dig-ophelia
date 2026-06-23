@@ -356,6 +356,20 @@ Expected byte count must match `BYTES_PER_MODULE` in both `config.h` and Pi `con
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
 
 <details>
+<summary>2026-06-23 — GL.iNet Opal portable network</summary>
+
+- set up **GL.iNet Opal (GL-SFT1200)** as the install router — **2.4 GHz** only; Pi and ESP32 don't support 5 GHz
+- moved **Pi** from home WiFi to Opal — **192.168.8.117** (router is **192.168.8.1**, not the Pi)
+- Bookworm **NetworkManager** — **raspi-config** WiFi fails; **nmcli** / **nmtui** work
+- turned off **AP/client isolation** on Opal — otherwise SSH and ESP32 HTTP fail
+- updated **ESP32 config.h** — one WiFi network, **PI_HOST** must be the Pi's Opal IP
+- SSH over the old home IP dies after switching networks — check Opal client list; Mac must use **2.4 GHz**
+- **curl /api/health** only works when **main.py** is running; Pi can fall back to home WiFi if that profile is saved
+- **end-to-end working** on Opal — next: **DHCP reservation** so the Pi IP stays stable
+
+</details>
+
+<details>
 <summary>2026-06-21 — tile/module config refactor, Phase 3 prep</summary>
 
 - refactored the Pi pipeline around a proper **tile → module → install** layout in **`config.py`** — `TILE_ROWS/COLS`, `MODULE_TILES_X/Y`, `INSTALL_MODULES_X/Y`, with **`recompute_layout()`** deriving grid size, byte count, and module count
