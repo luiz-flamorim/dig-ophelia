@@ -356,16 +356,16 @@ Expected byte count must match `BYTES_PER_MODULE` in both `config.h` and Pi `con
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
 
 <details>
-<summary>2026-06-23 — GL.iNet Opal portable network</summary>
+<summary>2026-06-23 — portable router for the live exhibit</summary>
 
-- set up **GL.iNet Opal (GL-SFT1200)** as the install router — **2.4 GHz** only; Pi and ESP32 don't support 5 GHz
-- moved **Pi** from home WiFi to Opal — **192.168.8.117** (router is **192.168.8.1**, not the Pi)
-- Bookworm **NetworkManager** — **raspi-config** WiFi fails; **nmcli** / **nmtui** work
-- turned off **AP/client isolation** on Opal — otherwise SSH and ESP32 HTTP fail
-- updated **ESP32 config.h** — one WiFi network, **PI_HOST** must be the Pi's Opal IP
-- SSH over the old home IP dies after switching networks — check Opal client list; Mac must use **2.4 GHz**
-- **curl /api/health** only works when **main.py** is running; Pi can fall back to home WiFi if that profile is saved
-- **end-to-end working** on Opal — next: **DHCP reservation** so the Pi IP stays stable
+- moved the **Pi and ESP32 off home WiFi** onto a dedicated router so the install can run on its own at the exhibit
+- first tried an **iPhone hotspot** — the Pi wouldn't connect, so I bought and set up a **GL.iNet travel router** instead
+- the Pi's built-in WiFi setup tool (**raspi-config**) kept erroring; had to configure WiFi a different way on the current Pi OS
+- lots of faff getting the Pi to see and join the new network — router had to be on and in range before the saved profile would show up
+- when the Pi switched networks my **SSH session dropped**, and I briefly tried connecting to the **router** thinking it was the Pi
+- my Mac was on a **different WiFi band** than the Pi and ESP32, which made debugging slower and more confusing
+- had to turn off a **client isolation** setting on the router — otherwise the Pi and ESP32 couldn't talk to each other even when everything looked connected
+- updated the **ESP32 WiFi settings** to match the new network; **end-to-end working** in the end — camera, Pi, display
 
 </details>
 
