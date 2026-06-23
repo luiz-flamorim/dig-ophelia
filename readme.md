@@ -119,7 +119,10 @@ Pi 5 is sufficient for this; the work is mostly config, crop/split math, and the
 
 The Pi runs the **camera processor** — it captures webcam input, applies background subtraction, and prepares binary frames for the ESP32 display controller. This section holds everything needed to **install, deploy, and maintain** that setup on the device.
 
-**Pi:** `luizamorim@192.168.1.157` (hostname: `pizero`)  
+**Pi: home network** `luizamorim@192.168.1.157`
+**Pi: opal** `luizamorim@192.168.8.117`
+(hostname: `pizero`)
+
 **Code on Mac:** `Code/camera-processor/` — copy to the Pi from the Mac terminal, not from inside an SSH session.
 
 | Step        | Command / check                                              |
