@@ -33,6 +33,10 @@ def open_camera(
             f"Available devices: {list_video_devices() or 'none'}"
         )
 
+    if platform.system() == "Linux":
+        # MJPEG reduces USB bandwidth vs raw YUYV — helps sustain 20+ FPS.
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     cap.set(cv2.CAP_PROP_FPS, config.CAMERA_FPS_REQUEST)

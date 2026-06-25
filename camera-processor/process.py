@@ -80,7 +80,7 @@ def grid_from_resize(mask: np.ndarray, invert: bool = False) -> np.ndarray:
     small = cv2.resize(
         mask,
         (config.INSTALL_COLS, config.INSTALL_ROWS),
-        interpolation=cv2.INTER_AREA,
+        interpolation=cv2.INTER_NEAREST,
     )
     grid = (small > 0).astype(np.uint8)
     if invert:

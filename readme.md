@@ -119,9 +119,17 @@ Pi 5 is sufficient for this; the work is mostly config, crop/split math, and the
 
 The Pi runs the **camera processor** — it captures webcam input, applies background subtraction, and prepares binary frames for the ESP32 display controller. This section holds everything needed to **install, deploy, and maintain** that setup on the device.
 
-**Pi: home network** `luizamorim@192.168.1.157`
-**Pi: opal** `luizamorim@192.168.8.117`
-(hostname: `pizero`)
+**Pi 5**
+- home `luizamorim@192.168.1.234`
+- opal `luizamorim@192.168.8.107`
+- hostname: `pi5`
+
+**Pi Zero 2W**
+- home `luizamorim@192.168.1.157`
+- opal `luizamorim@192.168.8.117`
+- hostname: `pizero`
+
+(Opal IPs are DHCP — check the router client list or `hostname -I` on the Pi if SSH fails.)
 
 **Code on Mac:** `Code/camera-processor/` — copy to the Pi from the Mac terminal, not from inside an SSH session.
 
@@ -148,17 +156,17 @@ Syncs only `camera-processor/` — `_context/` lives at the repo root and stays 
 ```bash
 rsync -av \
   "/Users/luizamorim/Library/Mobile Documents/com~apple~CloudDocs/Goldsmiths/Projects/_Final Project/Code/camera-processor/" \
-  luizamorim@192.168.1.157:~/camera-processor/
+  luizamorim@192.168.8.107:~/camera-processor/
 ```
 
-Note: destination is `luizamorim@192.168.1.157:~/camera-processor/` — no extra characters before the colon.
+Note: destination is `luizamorim@192.168.8.107:~/camera-processor/` — no extra characters before the colon.
 
 ### Option B — scp
 
 ```bash
 scp -r \
   "/Users/luizamorim/Library/Mobile Documents/com~apple~CloudDocs/Goldsmiths/Projects/_Final Project/Code/camera-processor" \
-  luizamorim@192.168.1.157:~/
+  luizamorim@192.168.8.107:~/
 ```
 
 Same scope as rsync — only the `camera-processor/` folder, not repo-root `_context/`.
@@ -166,7 +174,7 @@ Same scope as rsync — only the `camera-processor/` folder, not repo-root `_con
 ### Verify on the Pi
 
 ```bash
-ssh luizamorim@192.168.1.157
+ssh luizamorim@192.168.8.107
 ls ~/camera-processor
 ```
 
@@ -239,7 +247,7 @@ python3 main.py --index /dev/video0 --bg-threshold 30
 # Invert detection if silhouette is backwards
 python3 main.py --index /dev/video0 --invert
 
-# Lower FPS if the Pi struggles
+# Pi 5 default is ~25 FPS (config.TARGET_FPS). Lower only if the Pi struggles:
 python3 main.py --index /dev/video0 --fps 5
 
 # Cleaner mask (slower)
@@ -354,6 +362,32 @@ Expected byte count must match `BYTES_PER_MODULE` in both `config.h` and Pi `con
 # Journal
 
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
+
+<details>
+<summary>2026-06-25 — Pi 5 setup, Opal network, debugger running</summary>
+
+- got the **Raspberry Pi 5 4GB** — this is the install machine now; the **Zero 2W** stays as prototype/spare
+- flashed the same **Pi OS Lite** (no GUI), SSH in as **`pi5`**
+- set up **WiFi on the GL.iNet travel router** using **NetworkManager** — `raspi-config` still errors on current Pi OS
+- saved the Opal profile as **GL-Travel** with **autoconnect priority 110** so it beats home WiFi when the router is on; home stays as fallback when I unplug the Opal
+- SSH drops when the Pi switches networks — joined the Opal on my Mac and found the new IP (same faff as the Zero, but quicker this time)
+- updated **readme** with home and Opal IPs for both Pis — Opal addresses are DHCP, so check the router client list if SSH fails
+- pointed **ESP32** at the **Pi 5** on the Opal network (kept commented fallbacks for the Zero/home)
+- on the Pi 5: installed **OpenCV / NumPy / v4l-utils**, USB camera detected, **`debugger.py`** working in the browser
+- **Ctrl+C doesn't stop** the debugger cleanly — have to kill the terminal; looked into it but left the fix for later
+- tuned **FPS for the Pi 5** — target **25**, MJPEG on the webcam, small processing tweak; feels good now
+
+</details>
+
+<details>
+<summary>2026-06-24 — blueprint, field test, exhibit prep</summary>
+
+- drew up the **blueprint** for the install — wiring, connections, power supply, and how the pieces fit together; a lot of this is going straight into the **tech form**
+- took the setup **away from home** and ran it on the **Opal portable network** — worked well, reassuring for the live exhibit
+- went through **health & safety** with the **tech team**
+- looked at **parts for the frame and support** — figuring out what I can use to hold the mirror
+
+</details>
 
 <details>
 <summary>2026-06-23 — portable router for the live exhibit</summary>

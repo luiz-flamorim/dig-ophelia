@@ -354,6 +354,7 @@ def main() -> int:
     server = ThreadingHTTPServer((args.host, args.port), AppHandler)
     ip = local_ip()
     print(f"Running at http://{ip}:{args.port}")
+    print(f"Target FPS: {args.fps}")
     print(f"Debugger UI: http://{ip}:{args.port}/")
     print(f"Install grid: {config.INSTALL_COLS}×{config.INSTALL_ROWS}  "
           f"({config.MODULE_COUNT} module(s), {config.BYTES_PER_MODULE} bytes each)")
