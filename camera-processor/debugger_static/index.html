@@ -14,17 +14,18 @@
     <link rel="stylesheet" href="/static/debugger.css" />
   </head>
   <body>
-    <h1 id="title">Camera Debugger</h1>
-
-    <div id="status-bar">
-      <span id="status-fps">FPS: —</span>
-      <span id="status-bg">Background: —</span>
-      <span id="status-host">Host: —</span>
-    </div>
+    <header id="page-header">
+      <h1 id="title">Camera Debugger</h1>
+      <div id="status-bar">
+        <span id="status-fps">FPS: —</span>
+        <span id="status-bg">Background: —</span>
+        <span id="status-host">Host: —</span>
+      </div>
+    </header>
 
     <div id="main-layout">
       <div id="matrix-panel">
-        <h2>Matrix</h2>
+        <h2 class="panel-label">Matrix</h2>
         <div id="matrix-view">
           <img id="stream" alt="Processed mask" />
           <div id="grid-display"></div>
@@ -34,14 +35,16 @@
 
     <div id="controls">
       <div class="slider-container">
-        <label for="bg-threshold-slider">Difference threshold</label>
+        <label for="bg-threshold-slider">
+          Threshold <span id="threshold-value">30</span>
+        </label>
         <div class="slider-wrapper">
           <input
             type="range"
             id="bg-threshold-slider"
             class="threshold-slider"
             min="0"
-            max="255"
+            max="100"
             step="1"
             value="30"
           />

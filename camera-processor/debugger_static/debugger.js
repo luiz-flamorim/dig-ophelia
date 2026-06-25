@@ -8,6 +8,7 @@ const statusBg = document.getElementById("status-bg");
 const statusHost = document.getElementById("status-host");
 
 const bgThresholdSlider = document.getElementById("bg-threshold-slider");
+const thresholdValue = document.getElementById("threshold-value");
 const previewBtn = document.getElementById("preview-btn");
 const invertBtn = document.getElementById("invert-btn");
 const bgCaptureBtn = document.getElementById("bg-capture-btn");
@@ -42,6 +43,14 @@ function updateSliderFill(slider) {
   const value = parseFloat(slider.value);
   const ratio = max > 0 ? value / max : 0;
   slider.parentElement.style.setProperty("--slider-value", ratio);
+  if (thresholdValue) {
+    thresholdValue.textContent = String(Math.round(value));
+  }
+}
+
+function setMatrixAspect(rows, cols) {
+  document.documentElement.style.setProperty("--matrix-rows", String(rows));
+  document.documentElement.style.setProperty("--matrix-cols", String(cols));
 }
 
 function setProcessedStream(enabled) {
@@ -127,16 +136,23 @@ async function pollState() {
   }
 }
 
-bgThresholdSlider.addEventListener("pointerdown", () => {
+function startSliderEdit() {
   sliderEditing = true;
-});
+}
 
-bgThresholdSlider.addEventListener("pointerup", () => {
+function endSliderEdit() {
   sliderEditing = false;
-});
+}
 
-bgThresholdSlider.addEventListener("pointercancel", () => {
-  sliderEditing = false;
+bgThresholdSlider.addEventListener("pointerdown", startSliderEdit);
+bgThresholdSlider.addEventListener("pointerup", endSliderEdit);
+bgThresholdSlider.addEventListener("pointercancel", endSliderEdit);
+bgThresholdSlider.addEventListener("touchstart", startSliderEdit, { passive: true });
+bgThresholdSlider.addEventListener("touchend", endSliderEdit);
+bgThresholdSlider.addEventListener("touchcancel", endSliderEdit);
+bgThresholdSlider.addEventListener("change", () => {
+  endSliderEdit();
+  scheduleSettings();
 });
 
 bgThresholdSlider.addEventListener("input", () => {
@@ -199,6 +215,7 @@ async function init() {
     const cfg = await res.json();
     matrixRows = cfg.matrix_rows;
     matrixCols = cfg.matrix_cols;
+    setMatrixAspect(matrixRows, matrixCols);
     statusHost.textContent = `Host: ${window.location.host}`;
     buildGrid();
     updateSliderFill(bgThresholdSlider);

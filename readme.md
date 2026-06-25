@@ -133,7 +133,7 @@ The Pi runs the **camera processor** — it captures webcam input, applies backg
 
 **Code on Mac:** `Code/camera-processor/` — copy to the Pi from the Mac terminal, not from inside an SSH session.
 
-| Step        | Command / check                                              |
+| Step        | Command / check                                             |
 |------------|--------------------------------------------------------------|
 | Copy code  | `rsync` or `scp` **from Mac**                                |
 | Deps       | `sudo apt install python3-opencv python3-numpy v4l-utils`    |
@@ -364,18 +364,14 @@ Expected byte count must match `BYTES_PER_MODULE` in both `config.h` and Pi `con
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
 
 <details>
-<summary>2026-06-25 — Pi 5 setup, Opal network, debugger running</summary>
+<summary>2026-06-25 — Pi 5 setup, mobile debugger</summary>
 
-- got the **Raspberry Pi 5 4GB** — this is the install machine now; the **Zero 2W** stays as prototype/spare
-- flashed the same **Pi OS Lite** (no GUI), SSH in as **`pi5`**
-- set up **WiFi on the GL.iNet travel router** using **NetworkManager** — `raspi-config` still errors on current Pi OS
-- saved the Opal profile as **GL-Travel** with **autoconnect priority 110** so it beats home WiFi when the router is on; home stays as fallback when I unplug the Opal
-- SSH drops when the Pi switches networks — joined the Opal on my Mac and found the new IP (same faff as the Zero, but quicker this time)
-- updated **readme** with home and Opal IPs for both Pis — Opal addresses are DHCP, so check the router client list if SSH fails
-- pointed **ESP32** at the **Pi 5** on the Opal network (kept commented fallbacks for the Zero/home)
-- on the Pi 5: installed **OpenCV / NumPy / v4l-utils**, USB camera detected, **`debugger.py`** working in the browser
-- **Ctrl+C doesn't stop** the debugger cleanly — have to kill the terminal; looked into it but left the fix for later
-- tuned **FPS for the Pi 5** — target **25**, MJPEG on the webcam, small processing tweak; feels good now
+- got the **Pi 5 4GB** — install machine going forward; **Zero 2W** stays as spare
+- set it up on the **Opal travel router** (same WiFi faff as before, but quicker second time around); updated **readme** and **ESP32** to point at the Pi 5
+- camera and **debugger** running on the Pi 5, **FPS** tuned — feels good on the new hardware
+- refactored the **debugger** so I can open it from my **phone**
+- fixed **Ctrl+C** — it actually stops the server now instead of hanging
+- running the whole thing from my phone with **Termius** — SSH in, start the debugger, tune from the browser on mobile
 
 </details>
 

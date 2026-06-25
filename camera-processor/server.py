@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import os
 import re
 import signal
 import socket
@@ -55,7 +56,12 @@ def capture_loop(index, fps: float, warmup_s: int) -> None:
 
     if warmup_s > 0:
         print(f"Capturing background in {warmup_s}s — keep scene clear...")
-        time.sleep(warmup_s)
+        deadline = time.monotonic() + warmup_s
+        while state.running and time.monotonic() < deadline:
+            time.sleep(min(0.1, deadline - time.monotonic()))
+        if not state.running:
+            camera.release(cap)
+            return
         with state.lock:
             settings = _copy_settings(state.settings)
         try:
@@ -281,7 +287,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
         try:
             last_seq = -1
-            while True:
+            while state.running:
                 with state.lock:
                     jpeg = state.jpeg
                     seq = state.frame_seq
@@ -298,7 +304,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.wfile.write(f"Content-Length: {len(jpeg)}\r\n\r\n".encode())
                 self.wfile.write(jpeg + b"\r\n")
                 self.wfile.flush()
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, OSError):
             pass
 
 
@@ -331,12 +337,6 @@ def main() -> int:
         morphology=args.morphology,
     )
 
-    def handle_signal(_signum, _frame) -> None:
-        state.running = False
-
-    signal.signal(signal.SIGINT, handle_signal)
-    signal.signal(signal.SIGTERM, handle_signal)
-
     try:
         camera.open_camera(args.index).release()
     except RuntimeError as exc:
@@ -352,6 +352,22 @@ def main() -> int:
     capture_thread.start()
 
     server = ThreadingHTTPServer((args.host, args.port), AppHandler)
+    stopping = False
+
+    def handle_signal(_signum, _frame) -> None:
+        nonlocal stopping
+        if stopping:
+            print("\nForce exit.")
+            os._exit(1)
+        stopping = True
+        print("\nStopping...")
+        state.running = False
+        # shutdown() must run off the main thread — serve_forever() blocks there.
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
     ip = local_ip()
     print(f"Running at http://{ip}:{args.port}")
     print(f"Target FPS: {args.fps}")
@@ -363,12 +379,12 @@ def main() -> int:
 
     try:
         server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nStopping...")
     finally:
         state.running = False
         server.shutdown()
-        capture_thread.join(timeout=2)
+        server.server_close()
+        capture_thread.join(timeout=3)
+        print("Stopped.")
 
     return 0
 
