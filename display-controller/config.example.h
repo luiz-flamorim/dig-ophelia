@@ -38,6 +38,9 @@ constexpr uint8_t BASE_BRIGHTNESS = 3;
 // --- Debug ---
 constexpr bool SERIAL_DEBUG = false;  // true = log every fetched frame to Serial (slow)
 
+// --- Daisy chain: true = each tile is a contiguous SPI block (tile 0 rows 0–7, then tile 1, …) ---
+constexpr bool TILE_CHAIN_BLOCK_ORDER = true;
+
 // --- Startup ---
 constexpr bool RUN_ROW_TEST_ON_BOOT = true;
 

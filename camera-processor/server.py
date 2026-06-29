@@ -25,6 +25,7 @@ import numpy as np
 import camera
 import config
 import modules
+import packer
 from process import ProcessingSettings, capture_background, process_frame
 
 STATIC_DIR = Path(__file__).parent / "debugger_static"
@@ -45,9 +46,49 @@ class SharedState:
         self.show_processed: bool = False
         self.capture_background_requested = False
         self.running = True
+        self.probe_enabled = False
+        self.probe_auto = False
+        self.probe_index = 0
+        self.probe_interval_s = 0.8
+        self.probe_last_advance = 0.0
 
 
 state = SharedState()
+
+
+def _apply_probe() -> None:
+    """Update grid + module payloads for the current probe stream index."""
+    idx = state.probe_index
+    grid = np.zeros((config.INSTALL_ROWS, config.INSTALL_COLS), dtype=np.uint8)
+    if 0 <= idx < config.MODULE_CELLS:
+        row, col = packer.stream_to_logical_coords(idx)
+        if row < config.INSTALL_ROWS and col < config.INSTALL_COLS:
+            grid[row, col] = 1
+
+    payloads: dict[int, bytes] = {}
+    for module_id in range(config.MODULE_COUNT):
+        if module_id == 0:
+            payloads[module_id] = packer.pack_single_stream_index(idx, config.MODULE_CELLS)
+        else:
+            payloads[module_id] = packer.pack_single_stream_index(-1, config.MODULE_CELLS)
+
+    state.grid = grid
+    state.module_payloads = payloads
+    state.jpeg = b""
+
+
+def probe_loop() -> None:
+    while state.running:
+        time.sleep(0.05)
+        with state.lock:
+            if not state.probe_enabled or not state.probe_auto:
+                continue
+            now = time.monotonic()
+            if now - state.probe_last_advance < state.probe_interval_s:
+                continue
+            state.probe_index = (state.probe_index + 1) % config.MODULE_CELLS
+            state.probe_last_advance = now
+            _apply_probe()
 
 
 def capture_loop(index, fps: float, warmup_s: int) -> None:
@@ -77,19 +118,37 @@ def capture_loop(index, fps: float, warmup_s: int) -> None:
 
     while state.running:
         loop_start = time.perf_counter()
+        probe_active = False
+        capture_requested = False
 
         with state.lock:
-            settings = _copy_settings(state.settings)
-            show_processed = state.show_processed
-            background = state.background
-            if state.capture_background_requested:
-                state.capture_background_requested = False
-                try:
-                    state.background = capture_background(cap, settings)
+            if state.probe_enabled:
+                probe_active = True
+            else:
+                probe_active = False
+                settings = _copy_settings(state.settings)
+                show_processed = state.show_processed
+                background = state.background
+                if state.capture_background_requested:
+                    state.capture_background_requested = False
+                    capture_requested = True
+                else:
+                    capture_requested = False
+
+        if probe_active:
+            time.sleep(0.05)
+            continue
+
+        if capture_requested:
+            try:
+                background = capture_background(cap, settings)
+                with state.lock:
+                    state.background = background
+                print("Background frame captured")
+            except RuntimeError as exc:
+                print(f"Background capture failed: {exc}")
+                with state.lock:
                     background = state.background
-                    print("Background frame captured")
-                except RuntimeError as exc:
-                    print(f"Background capture failed: {exc}")
 
         frame = camera.read_frame(cap)
         if frame is None:
@@ -193,11 +252,16 @@ class AppHandler(BaseHTTPRequestHandler):
                     "install_modules_y": config.INSTALL_MODULES_Y,
                     "module_count": config.MODULE_COUNT,
                     "bytes_per_module": config.BYTES_PER_MODULE,
+                    "process_width": config.PROCESS_WIDTH,
+                    "process_height": config.PROCESS_HEIGHT,
+                    "module_cells": config.MODULE_CELLS,
                 }
             )
 
         if path == "/api/state":
             with state.lock:
+                idx = state.probe_index
+                probe_device, probe_digit = packer.stream_to_device_digit(idx)
                 payload = {
                     "grid": state.grid.astype(int).tolist(),
                     "fps": state.fps,
@@ -205,6 +269,13 @@ class AppHandler(BaseHTTPRequestHandler):
                     "invert": state.settings.invert,
                     "show_processed": state.show_processed,
                     "has_background": state.background is not None,
+                    "probe_enabled": state.probe_enabled,
+                    "probe_auto": state.probe_auto,
+                    "probe_index": idx,
+                    "probe_max": config.MODULE_CELLS - 1,
+                    "probe_device": probe_device,
+                    "probe_digit": probe_digit,
+                    "probe_hex": format(idx & 0x0F, "X"),
                 }
             return self._send_json(payload)
 
@@ -265,8 +336,58 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if path == "/api/background/capture":
             with state.lock:
+                if state.probe_enabled:
+                    return self._send_json({"ok": False, "error": "probe active"}, HTTPStatus.CONFLICT)
                 state.capture_background_requested = True
             return self._send_json({"ok": True})
+
+        if path == "/api/probe":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            try:
+                data = json.loads(body.decode("utf-8")) if body else {}
+            except json.JSONDecodeError:
+                return self.send_error(HTTPStatus.BAD_REQUEST)
+
+            with state.lock:
+                if "enabled" in data:
+                    state.probe_enabled = bool(data["enabled"])
+                    if state.probe_enabled:
+                        state.show_processed = False
+                        state.jpeg = b""
+                        state.probe_last_advance = time.monotonic()
+                        _apply_probe()
+                    else:
+                        state.probe_auto = False
+                        state.grid = np.zeros(
+                            (config.INSTALL_ROWS, config.INSTALL_COLS), dtype=np.uint8
+                        )
+                        state.module_payloads = {
+                            module_id: packer.pack_single_stream_index(-1, config.MODULE_CELLS)
+                            for module_id in range(config.MODULE_COUNT)
+                        }
+
+                if "auto" in data:
+                    state.probe_auto = bool(data["auto"])
+                    state.probe_last_advance = time.monotonic()
+
+                if state.probe_enabled:
+                    if data.get("step") == "next":
+                        state.probe_index = (state.probe_index + 1) % config.MODULE_CELLS
+                    elif data.get("step") == "prev":
+                        state.probe_index = (state.probe_index - 1) % config.MODULE_CELLS
+                    elif "index" in data:
+                        state.probe_index = int(data["index"]) % config.MODULE_CELLS
+                    state.probe_last_advance = time.monotonic()
+                    _apply_probe()
+
+                payload = {
+                    "ok": True,
+                    "probe_enabled": state.probe_enabled,
+                    "probe_auto": state.probe_auto,
+                    "probe_index": state.probe_index,
+                }
+            return self._send_json(payload)
 
         self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -351,6 +472,9 @@ def main() -> int:
     )
     capture_thread.start()
 
+    probe_thread = threading.Thread(target=probe_loop, daemon=True)
+    probe_thread.start()
+
     server = ThreadingHTTPServer((args.host, args.port), AppHandler)
     stopping = False
 
@@ -374,6 +498,8 @@ def main() -> int:
     print(f"Debugger UI: http://{ip}:{args.port}/")
     print(f"Install grid: {config.INSTALL_COLS}×{config.INSTALL_ROWS}  "
           f"({config.MODULE_COUNT} module(s), {config.BYTES_PER_MODULE} bytes each)")
+    print(f"Process crop: {config.PROCESS_WIDTH}×{config.PROCESS_HEIGHT}  "
+          f"(matches install aspect)")
     print(f"ESP32 poll:  GET /api/module/{{id}}  (0–{config.MODULE_COUNT - 1})")
     print("Press Ctrl+C to stop.")
 
@@ -384,6 +510,7 @@ def main() -> int:
         server.shutdown()
         server.server_close()
         capture_thread.join(timeout=3)
+        probe_thread.join(timeout=1)
         print("Stopped.")
 
     return 0

@@ -5,12 +5,16 @@ TILE_ROWS = 8
 TILE_COLS = 16
 
 # --- Tiles per module (one ESP32) — set to match physical wiring ---
-MODULE_TILES_X = 1
+MODULE_TILES_X = 2
 MODULE_TILES_Y = 1
 
 # --- Module layout in the install ---
 INSTALL_MODULES_X = 1
 INSTALL_MODULES_Y = 1
+
+# --- Daisy chain (keep in sync with ESP32 TILE_CHAIN_BLOCK_ORDER) ---
+# True: stream bytes tile-by-tile (tile 0 rows 0–7, then tile 1, …).
+TILE_CHAIN_BLOCK_ORDER = True
 
 # --- Derived layout (recomputed by recompute_layout()) ---
 MODULE_ROWS = 0
@@ -26,12 +30,20 @@ MODULE_COUNT = 0
 MATRIX_ROWS = 0
 MATRIX_COLS = 0
 
+# Processing resolution (recomputed — aspect matches install grid)
+PROCESS_BASE_WIDTH = 160
+PROCESS_WIDTH = 0
+PROCESS_HEIGHT = 0
+DEBUG_PREVIEW_WIDTH = 0
+DEBUG_PREVIEW_HEIGHT = 0
+
 
 def recompute_layout() -> None:
     """Recompute derived constants after changing tile/module/install knobs."""
     global MODULE_ROWS, MODULE_COLS, MODULE_CELLS, BYTES_PER_MODULE
     global INSTALL_ROWS, INSTALL_COLS, INSTALL_CELLS, MODULE_COUNT
     global MATRIX_ROWS, MATRIX_COLS
+    global PROCESS_WIDTH, PROCESS_HEIGHT, DEBUG_PREVIEW_WIDTH, DEBUG_PREVIEW_HEIGHT
 
     MODULE_ROWS = TILE_ROWS * MODULE_TILES_Y
     MODULE_COLS = TILE_COLS * MODULE_TILES_X
@@ -46,6 +58,11 @@ def recompute_layout() -> None:
     MATRIX_ROWS = INSTALL_ROWS
     MATRIX_COLS = INSTALL_COLS
 
+    PROCESS_WIDTH = PROCESS_BASE_WIDTH
+    PROCESS_HEIGHT = max(1, round(PROCESS_BASE_WIDTH * INSTALL_ROWS / INSTALL_COLS))
+    DEBUG_PREVIEW_WIDTH = PROCESS_WIDTH
+    DEBUG_PREVIEW_HEIGHT = PROCESS_HEIGHT
+
 
 recompute_layout()
 
@@ -54,9 +71,6 @@ CAMERA_WIDTH = 160
 CAMERA_HEIGHT = 120
 CAMERA_FPS_REQUEST = 30
 CAMERA_WARMUP_FRAMES = 10
-
-PROCESS_WIDTH = CAMERA_WIDTH
-PROCESS_HEIGHT = CAMERA_HEIGHT
 
 TARGET_FPS = 25
 
@@ -78,7 +92,5 @@ SERVER_PORT = 8080
 
 DEBUG_HOST = "0.0.0.0"
 DEBUG_PORT = 8080
-DEBUG_PREVIEW_WIDTH = 160
-DEBUG_PREVIEW_HEIGHT = 120
 DEBUG_MJPEG_FPS = 20
 DEBUG_JPEG_QUALITY = 30

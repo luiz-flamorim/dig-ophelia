@@ -6,17 +6,52 @@
 namespace {
 
 constexpr uint8_t DEVICES_PER_ROW = MODULE_COLS / DIGITS_PER_DEVICE;
+constexpr uint8_t DEVICES_PER_TILE_ROW = TILE_COLS / DIGITS_PER_DEVICE;
+constexpr uint8_t DEVICES_PER_TILE = TILE_ROWS * DEVICES_PER_TILE_ROW;
 constexpr uint8_t NUM_DEVICES = MODULE_ROWS * DEVICES_PER_ROW;
+static_assert(NUM_DEVICES <= 64, "LedControl buffers support up to 64 MAX7219 devices (2x2 module)");
+static_assert(
+    NUM_DEVICES == (MODULE_TILES_X * MODULE_TILES_Y) * DEVICES_PER_TILE,
+    "Device count must match tile count × devices per tile");
 
 LedControl lc(PIN_MOSI, PIN_CLK, PIN_CS, NUM_DEVICES);
+
+// Map SPI stream index (wire byte order) to MAX7219 device + digit.
+// Stream order matches Pi packer: each tile is a contiguous block on the chain.
+void streamIndexToDevice(uint16_t streamIndex, uint8_t* device, uint8_t* digit) {
+  if (TILE_CHAIN_BLOCK_ORDER) {
+    constexpr uint16_t CELLS_PER_TILE = TILE_ROWS * TILE_COLS;
+    const uint8_t tileIndex = streamIndex / CELLS_PER_TILE;
+    const uint16_t inTile = streamIndex % CELLS_PER_TILE;
+    const uint8_t rowInTile = inTile / TILE_COLS;
+    const uint8_t colInTile = inTile % TILE_COLS;
+
+    *device = static_cast<uint8_t>(
+        tileIndex * DEVICES_PER_TILE + rowInTile * DEVICES_PER_TILE_ROW + colInTile / DIGITS_PER_DEVICE);
+    *digit = colInTile % DIGITS_PER_DEVICE;
+  } else {
+    const uint8_t row = streamIndex / MODULE_COLS;
+    const uint8_t col = streamIndex % MODULE_COLS;
+    *device = static_cast<uint8_t>(row * DEVICES_PER_ROW + col / DIGITS_PER_DEVICE);
+    *digit = col % DIGITS_PER_DEVICE;
+  }
+}
 
 void correctDigitForReversedRows(uint8_t device, uint8_t* digit) {
   if (!FIX_REVERSED_LAST_TWO_ROWS) {
     return;
   }
 
-  const uint8_t row = device / DEVICES_PER_ROW;
-  const uint8_t devInRow = device % DEVICES_PER_ROW;
+  uint8_t row;
+  uint8_t devInRow;
+  if (TILE_CHAIN_BLOCK_ORDER) {
+    const uint8_t offsetInTile = device % DEVICES_PER_TILE;
+    row = offsetInTile / DEVICES_PER_TILE_ROW;
+    devInRow = offsetInTile % DEVICES_PER_TILE_ROW;
+  } else {
+    row = device / DEVICES_PER_ROW;
+    devInRow = device % DEVICES_PER_ROW;
+  }
 
   if (row == 6 && devInRow == 1) {
     *digit = (*digit + 4) % 8;
@@ -35,58 +70,60 @@ void setAllDigitsOff() {
   delayMicroseconds(100);
 }
 
-void rowTest() {
+// Boot wiring test: each tile shows {MODULE_ID}{tileIndex} (e.g. 00, 01, 02, 03).
+// Tiles are side-by-side within a module; modules stack in the install.
+// Matching digits (00, 11) fill every cell; mixed digits alternate per column (0101…).
+void tileIdTest() {
   setAllDigitsOff();
   delay(500);
 
-  for (uint8_t row = 0; row < MODULE_ROWS; row++) {
-    const uint8_t firstDevice = row * DEVICES_PER_ROW;
+  constexpr uint16_t CELLS_PER_TILE = TILE_ROWS * TILE_COLS;
 
-    for (uint8_t devOffset = 0; devOffset < DEVICES_PER_ROW; devOffset++) {
-      const uint8_t device = firstDevice + devOffset;
-      for (uint8_t digit = 0; digit < DIGITS_PER_DEVICE; digit++) {
-        lc.setDigit(device, digit, row, false);
-        delayMicroseconds(50);
-      }
+  for (uint16_t streamIndex = 0; streamIndex < MODULE_CELLS; streamIndex++) {
+    const uint8_t tileIndex = streamIndex / CELLS_PER_TILE;
+    const uint8_t colInTile = (streamIndex % CELLS_PER_TILE) % TILE_COLS;
+
+    const uint8_t moduleDigit = MODULE_ID % 10;
+    const uint8_t tileDigit = tileIndex % 10;
+
+    uint8_t value;
+    if (moduleDigit == tileDigit) {
+      value = moduleDigit;
+    } else if (colInTile % 2 == 0) {
+      value = moduleDigit;
+    } else {
+      value = tileDigit;
     }
 
-    delay(50);
-  }
-
-  delay(500);
-  setAllDigitsOff();
-  delay(300);
-
-  for (uint16_t squareIndex = 0; squareIndex < MODULE_CELLS; squareIndex++) {
-    const uint8_t row = squareIndex / MODULE_COLS;
-    const uint8_t physicalDigit = squareIndex % MODULE_COLS;
-    const uint8_t device = row * DEVICES_PER_ROW + (physicalDigit / DIGITS_PER_DEVICE);
-    uint8_t digit = physicalDigit % DIGITS_PER_DEVICE;
-
+    uint8_t device;
+    uint8_t digit;
+    streamIndexToDevice(streamIndex, &device, &digit);
     correctDigitForReversedRows(device, &digit);
-    lc.setDigit(device, digit, physicalDigit, false);
+
+    lc.setDigit(device, digit, value, false);
     delayMicroseconds(50);
   }
 
-  delay(2000);
+  delay(3000);
+  setAllDigitsOff();
+  delay(300);
 }
 
 void processMessage(const uint8_t* bytes) {
-  uint16_t squareIndex = 0;
+  uint16_t streamIndex = 0;
 
   for (uint16_t byteIndex = 0; byteIndex < BYTES_PER_MODULE; byteIndex++) {
     const uint8_t value = bytes[byteIndex];
 
     for (int8_t bit = 7; bit >= 0; bit--) {
-      if (squareIndex >= MODULE_CELLS) {
+      if (streamIndex >= MODULE_CELLS) {
         return;
       }
 
       const bool isActive = (value >> bit) & 1;
-      const uint8_t row = squareIndex / MODULE_COLS;
-      const uint8_t physicalDigit = squareIndex % MODULE_COLS;
-      const uint8_t device = row * DEVICES_PER_ROW + (physicalDigit / DIGITS_PER_DEVICE);
-      uint8_t digit = physicalDigit % DIGITS_PER_DEVICE;
+      uint8_t device;
+      uint8_t digit;
+      streamIndexToDevice(streamIndex, &device, &digit);
 
       correctDigitForReversedRows(device, &digit);
 
@@ -96,7 +133,7 @@ void processMessage(const uint8_t* bytes) {
         lc.setChar(device, digit, ' ', false);
       }
 
-      squareIndex++;
+      streamIndex++;
     }
   }
 }
@@ -118,7 +155,7 @@ void displayBegin() {
   }
 
   if (RUN_ROW_TEST_ON_BOOT) {
-    rowTest();
+    tileIdTest();
     delay(1000);
   }
 }

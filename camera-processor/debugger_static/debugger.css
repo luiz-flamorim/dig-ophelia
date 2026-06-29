@@ -8,8 +8,11 @@
   --color-8: #c84a4a;
   --text-1: #c8c8c8;
   --text-2: #e0e0e0;
-  --matrix-cols: 16;
   --matrix-rows: 8;
+  --matrix-cols: 16;
+  --tile-cols: 16;
+  --cell-size: 14px;
+  --matrix-panel-max-w: 448px;
 }
 
 * {
@@ -38,7 +41,7 @@ body {
 
 #page-header {
   width: 100%;
-  max-width: 640px;
+  max-width: var(--matrix-panel-max-w);
   text-align: center;
 }
 
@@ -72,14 +75,13 @@ body {
 }
 
 #matrix-panel {
-  container-type: size;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  width: 640px;
-  max-width: 100%;
+  width: 100%;
+  max-width: var(--matrix-panel-max-w);
 }
 
 .panel-label {
@@ -92,10 +94,7 @@ body {
 
 #matrix-view {
   position: relative;
-  width: min(100cqw, calc(100cqh * var(--matrix-cols) / var(--matrix-rows)));
-  height: min(100cqh, calc(100cqw * var(--matrix-rows) / var(--matrix-cols)));
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
   aspect-ratio: var(--matrix-cols) / var(--matrix-rows);
   background: var(--color-2);
   border: 1px solid var(--color-4);
@@ -119,16 +118,27 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px;
+  gap: 3px;
+  padding: 6px;
   z-index: 2;
 }
 
 .matrix-row {
   display: flex;
   flex: 1;
-  gap: 4px;
+  gap: 6px;
   min-height: 0;
+}
+
+.tile-group {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .grid-cell {
@@ -137,7 +147,7 @@ body {
   align-items: center;
   justify-content: center;
   min-width: 0;
-  font-size: 0.55rem;
+  font-size: clamp(0.35rem, calc(var(--cell-size) * 0.45), 0.55rem);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #666;
   background: transparent;
@@ -149,13 +159,85 @@ body {
   color: var(--text-2);
 }
 
+.grid-cell.probe-active {
+  background: rgba(220, 180, 40, 0.85);
+  border-color: #e8c040;
+  box-shadow: 0 0 6px rgba(232, 192, 64, 0.6);
+}
+
+#probe-panel {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--color-4);
+  background: var(--color-2);
+}
+
+#probe-panel.disabled {
+  opacity: 0.55;
+}
+
+.probe-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+#probe-toggle-btn.active {
+  background-color: var(--color-5);
+  color: var(--color-8);
+}
+
+.probe-status {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-2);
+}
+
+.probe-hint {
+  font-size: 0.65rem;
+  line-height: 1.4;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+#probe-readout {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+#probe-readout strong {
+  color: var(--color-8);
+  font-size: 1rem;
+}
+
+.probe-buttons .toggle-btn {
+  min-width: 0;
+  flex: 1;
+}
+
+body.probe-mode #controls .slider-container,
+body.probe-mode #preview-btn,
+body.probe-mode #invert-btn,
+body.probe-mode #bg-capture-btn {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 #controls {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 20px;
   width: 100%;
-  max-width: 640px;
+  max-width: var(--matrix-panel-max-w);
 }
 
 .slider-container {
@@ -364,9 +446,11 @@ label {
 
   #matrix-panel {
     width: 100%;
+    max-width: none;
     flex: 1;
     min-height: 0;
     gap: 0;
+    justify-content: center;
   }
 
   .panel-label {
@@ -374,10 +458,13 @@ label {
   }
 
   #matrix-view {
-    width: min(100cqw, calc(100cqh * var(--matrix-cols) / var(--matrix-rows)));
-    height: min(100cqh, calc(100cqw * var(--matrix-rows) / var(--matrix-cols)));
-    max-width: 100%;
-    max-height: 100%;
+    width: min(
+      100%,
+      var(--matrix-panel-max-w),
+      calc((100dvh - 150px) * var(--matrix-cols) / var(--matrix-rows))
+    );
+    max-height: calc(100dvh - 150px);
+    height: auto;
     border-left: none;
     border-right: none;
   }
@@ -387,8 +474,17 @@ label {
     gap: 2px;
   }
 
+  .matrix-row {
+    gap: 4px;
+  }
+
+  .tile-group {
+    gap: 1px;
+    padding: 1px;
+  }
+
   .grid-cell {
-    font-size: 0.45rem;
+    font-size: 0;
     border-width: 1px;
   }
 
@@ -423,5 +519,27 @@ label {
     line-height: 1.25;
     white-space: normal;
     text-align: center;
+  }
+
+  #probe-panel {
+    padding: 8px 4px;
+  }
+
+  .probe-hint {
+    font-size: 0.5rem;
+  }
+
+  #probe-readout {
+    gap: 10px;
+    font-size: 0.5rem;
+  }
+
+  #probe-readout strong {
+    font-size: 0.75rem;
+  }
+
+  .probe-buttons .toggle-btn {
+    max-width: none;
+    font-size: 0.55rem;
   }
 }

@@ -69,12 +69,12 @@ const static byte charTable[] PROGMEM = {
 class LedControl {
 private:
   /* The array for shifting the data to the devices */
-  byte spidata[60];  // Increased from 16 to 60 to support 30 devices (30 * 2 bytes = 60)
+  byte spidata[128];  // 64 devices max (full 2×2 module: 64 * 2 bytes)
   /* Send out a single command to the device */
   void spiTransfer(int addr, byte opcode, byte data);
 
   /* We keep track of the led-status for all devices in this array */
-  byte status[240];  // Increased from 64 to 240 to support 30 devices (30 * 8 digits = 240)
+  byte status[512];  // 64 devices max (64 * 8 digits)
   /* Data is shifted out of this pin*/
   int SPI_MOSI;
   /* The clock is signaled on this pin */

@@ -56,6 +56,29 @@
         <button id="invert-btn" class="toggle-btn">Invert</button>
         <button id="bg-capture-btn" class="toggle-btn">Capture background</button>
       </div>
+
+      <div id="probe-panel">
+        <div class="probe-header">
+          <button id="probe-toggle-btn" class="toggle-btn">Wiring probe</button>
+          <span id="probe-status" class="probe-status">off</span>
+        </div>
+        <p class="probe-hint">
+          Lights one SPI stream index at a time on module 0 (tile-block chain order).
+          Note which physical digit lights for each index — yellow cell is the
+          naive software guess until a hardware map is built from your notes.
+        </p>
+        <div id="probe-readout">
+          <span>index <strong id="probe-index">0</strong></span>
+          <span>device <strong id="probe-device">0</strong></span>
+          <span>digit <strong id="probe-digit">0</strong></span>
+          <span>hex <strong id="probe-hex">0</strong></span>
+        </div>
+        <div class="buttons-container probe-buttons">
+          <button id="probe-prev-btn" class="toggle-btn" disabled>Prev</button>
+          <button id="probe-auto-btn" class="toggle-btn" disabled>Auto</button>
+          <button id="probe-next-btn" class="toggle-btn" disabled>Next</button>
+        </div>
+      </div>
     </div>
 
     <script src="/static/debugger.js"></script>

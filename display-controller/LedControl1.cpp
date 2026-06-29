@@ -58,8 +58,7 @@ LedControl::LedControl(int dataPin, int clkPin, int csPin, int numDevices) {
   // Don't call beginTransaction here - call it before each transfer in spiTransfer()
   pinMode(SPI_CS, OUTPUT);
   digitalWrite(SPI_CS, HIGH);
-  // Initialize status array for up to 30 devices (30 * 8 = 240)
-  for (int i = 0; i < 240; i++)
+  for (int i = 0; i < maxDevices * 8; i++)
     status[i] = 0x00;
   for (int i = 0; i < maxDevices; i++) {
     spiTransfer(i, OP_DISPLAYTEST, 0);  // Turn off display test

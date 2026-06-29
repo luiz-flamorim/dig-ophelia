@@ -24,9 +24,32 @@ def mirror_frame(frame: np.ndarray) -> np.ndarray:
     return cv2.flip(frame, 1)
 
 
+def center_crop_to_install_aspect(frame: np.ndarray) -> np.ndarray:
+    """Center-crop to match install grid aspect (INSTALL_COLS : INSTALL_ROWS)."""
+    height, width = frame.shape[:2]
+    if height == 0 or width == 0:
+        return frame
+
+    target_aspect = config.INSTALL_COLS / config.INSTALL_ROWS
+    source_aspect = width / height
+
+    if abs(source_aspect - target_aspect) < 1e-6:
+        return frame
+
+    if source_aspect > target_aspect:
+        new_width = max(1, int(round(height * target_aspect)))
+        x0 = (width - new_width) // 2
+        return frame[:, x0 : x0 + new_width]
+
+    new_height = max(1, int(round(width / target_aspect)))
+    y0 = (height - new_height) // 2
+    return frame[y0 : y0 + new_height, :]
+
+
 def prepare_frame(frame: np.ndarray, settings: ProcessingSettings) -> np.ndarray:
-    """Mirror and downscale to the processing resolution."""
+    """Mirror, crop to install aspect, then downscale for processing."""
     working = mirror_frame(frame) if settings.mirror else frame
+    working = center_crop_to_install_aspect(working)
     height, width = working.shape[:2]
     if width != config.PROCESS_WIDTH or height != config.PROCESS_HEIGHT:
         working = cv2.resize(
