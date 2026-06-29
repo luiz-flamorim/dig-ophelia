@@ -364,6 +364,19 @@ Expected byte count must match `BYTES_PER_MODULE` in both `config.h` and Pi `con
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
 
 <details>
+<summary>2026-06-29 — second tile, fixing the display mapping</summary>
+
+- wired up a **second tile** side by side with the first — two tiles on one module now
+- adding a tile meant changing the code — the display was stretching into extra **rows** instead of staying **8 rows wide**
+- changed the **boot test** so each tile shows its own ID (**00**, **01**) instead of the old 0–9 / A–F pattern
+- both tiles were showing a **muddy mix** of patterns — figured out the wiring runs **tile by tile**, but the code was reading it as **one long row**
+- fixed the **ESP32** first; boot test looked right on the hardware
+- the **live camera feed** was still wrong — fixed the **Pi** and **debugger** to send data in the same order as the physical chain
+- **camera → display working really well** now; scaling up should mostly be a config change when I add more tiles
+
+</details>
+
+<details>
 <summary>2026-06-25 — Pi 5 setup, mobile debugger</summary>
 
 - got the **Pi 5 4GB** — install machine going forward; **Zero 2W** stays as spare
