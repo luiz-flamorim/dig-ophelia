@@ -26,7 +26,7 @@ import camera
 import config
 import modules
 import packer
-from process import ProcessingSettings, capture_background, process_frame
+from process import ProcessingSettings, build_preview, capture_background, process_frame
 
 STATIC_DIR = Path(__file__).parent / "debugger_static"
 BOUNDARY = b"--frame"
@@ -43,7 +43,8 @@ class SharedState:
         self.jpeg: bytes = b""
         self.frame_seq: int = 0
         self.fps: float = 0.0
-        self.show_processed: bool = False
+        # "off" | "mask" | "diff" | "raw" | "background"
+        self.preview_mode: str = "off"
         self.capture_background_requested = False
         self.running = True
         self.probe_enabled = False
@@ -127,7 +128,7 @@ def capture_loop(index, fps: float, warmup_s: int) -> None:
             else:
                 probe_active = False
                 settings = _copy_settings(state.settings)
-                show_processed = state.show_processed
+                preview_mode = state.preview_mode
                 background = state.background
                 if state.capture_background_requested:
                     state.capture_background_requested = False
@@ -155,16 +156,21 @@ def capture_loop(index, fps: float, warmup_s: int) -> None:
             time.sleep(0.05)
             continue
 
-        grid, preview, _ = process_frame(frame, settings, background=background)
+        grid, mask, grey, diff_raw = process_frame(frame, settings, background=background)
         payloads = modules.build_module_payloads(grid)
 
         jpeg = b""
-        if show_processed:
+        if preview_mode != "off":
+            preview_img = build_preview(
+                mask, grey, diff_raw, background,
+                mode=preview_mode,
+                threshold=settings.bg_diff_threshold,
+            )
             preview_size = (config.DEBUG_PREVIEW_WIDTH, config.DEBUG_PREVIEW_HEIGHT)
-            mask_preview = cv2.resize(preview, preview_size)
+            preview_resized = cv2.resize(preview_img, preview_size)
             ok, encoded = cv2.imencode(
                 ".jpg",
-                mask_preview,
+                preview_resized,
                 [int(cv2.IMWRITE_JPEG_QUALITY), config.DEBUG_JPEG_QUALITY],
             )
             jpeg = encoded.tobytes() if ok else b""
@@ -182,10 +188,10 @@ def capture_loop(index, fps: float, warmup_s: int) -> None:
             state.grid = grid
             state.module_payloads = payloads
             state.fps = current_fps
-            if show_processed and jpeg:
+            if preview_mode != "off" and jpeg:
                 state.jpeg = jpeg
                 state.frame_seq += 1
-            elif not show_processed:
+            elif preview_mode == "off":
                 state.jpeg = b""
 
     camera.release(cap)
@@ -246,6 +252,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     "tile_cols": config.TILE_COLS,
                     "module_tiles_x": config.MODULE_TILES_X,
                     "module_tiles_y": config.MODULE_TILES_Y,
+                    "tile_mirror_x": config.TILE_MIRROR_X,
                     "module_rows": config.MODULE_ROWS,
                     "module_cols": config.MODULE_COLS,
                     "install_modules_x": config.INSTALL_MODULES_X,
@@ -267,7 +274,8 @@ class AppHandler(BaseHTTPRequestHandler):
                     "fps": state.fps,
                     "bg_threshold": state.settings.bg_diff_threshold,
                     "invert": state.settings.invert,
-                    "show_processed": state.show_processed,
+                    "preview_mode": state.preview_mode,
+                    "show_processed": state.preview_mode != "off",  # legacy compat
                     "has_background": state.background is not None,
                     "probe_enabled": state.probe_enabled,
                     "probe_auto": state.probe_auto,
@@ -327,9 +335,16 @@ class AppHandler(BaseHTTPRequestHandler):
                     state.settings.bg_diff_threshold = int(data["bg_threshold"])
                 if "invert" in data:
                     state.settings.invert = bool(data["invert"])
-                if "show_processed" in data:
-                    state.show_processed = bool(data["show_processed"])
-                    if not state.show_processed:
+                if "preview_mode" in data:
+                    mode = str(data["preview_mode"])
+                    if mode in ("off", "mask", "diff", "raw", "background"):
+                        state.preview_mode = mode
+                        if mode == "off":
+                            state.jpeg = b""
+                elif "show_processed" in data:
+                    # legacy boolean fallback
+                    state.preview_mode = "mask" if bool(data["show_processed"]) else "off"
+                    if state.preview_mode == "off":
                         state.jpeg = b""
 
             return self._send_json({"ok": True})
@@ -353,7 +368,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 if "enabled" in data:
                     state.probe_enabled = bool(data["enabled"])
                     if state.probe_enabled:
-                        state.show_processed = False
+                        state.preview_mode = "off"
                         state.jpeg = b""
                         state.probe_last_advance = time.monotonic()
                         _apply_probe()

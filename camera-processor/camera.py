@@ -41,7 +41,29 @@ def open_camera(
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     cap.set(cv2.CAP_PROP_FPS, config.CAMERA_FPS_REQUEST)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    if not config.CAMERA_AUTO_EXPOSURE:
+        _lock_exposure(cap)
+
     return cap
+
+
+def _lock_exposure(cap: cv2.VideoCapture) -> None:
+    """Disable AGC and set a fixed exposure (V4L2 / Linux only).
+
+    V4L2 auto-exposure mode values differ by driver; 1 = manual is the most
+    common.  The exposure property uses a log-scale integer (e.g. -6 ≈ 1/64 s).
+    Silently skips on non-Linux platforms or cameras that ignore these props.
+    """
+    if platform.system() != "Linux":
+        return
+    # 1 = manual, 3 = aperture-priority (auto) on most V4L2 drivers
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+    cap.set(cv2.CAP_PROP_EXPOSURE, config.CAMERA_EXPOSURE)
+    print(
+        f"[camera] auto-exposure disabled, exposure={config.CAMERA_EXPOSURE} "
+        f"(override CAMERA_AUTO_EXPOSURE/CAMERA_EXPOSURE in config.py)"
+    )
 
 
 def _create_capture(index: CameraIndex) -> cv2.VideoCapture:

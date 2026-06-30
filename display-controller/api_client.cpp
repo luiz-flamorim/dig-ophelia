@@ -17,7 +17,6 @@ bool ensureWifi() {
 
   wifiConnected = false;
   Serial.println("WiFi disconnected — reconnecting...");
-  WiFi.disconnect();
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
   const uint32_t start = millis();
@@ -72,7 +71,7 @@ bool apiFetchModuleFrame(uint8_t* buffer, size_t bufferSize) {
   snprintf(url, sizeof(url), "http://%s:%u/api/module/%u", PI_HOST, PI_PORT, MODULE_ID);
 
   HTTPClient http;
-  http.setTimeout(2000);
+  http.setTimeout(500);
   http.begin(url);
 
   const int httpCode = http.GET();

@@ -28,7 +28,16 @@ const probeAutoBtn = document.getElementById("probe-auto-btn");
 const probeNextBtn = document.getElementById("probe-next-btn");
 
 let invert = false;
-let showProcessed = false;
+// Cycle order for the preview button.  "background" shows the captured BG frame.
+const PREVIEW_MODES = ["off", "mask", "diff", "raw", "background"];
+const PREVIEW_LABELS = {
+  off:        "Preview: off",
+  mask:       "Preview: mask",
+  diff:       "Preview: diff",
+  raw:        "Preview: raw",
+  background: "Preview: background",
+};
+let previewMode = "off";
 let probeEnabled = false;
 let probeAuto = false;
 let settingsTimer = null;
@@ -114,6 +123,13 @@ function setProcessedStream(enabled) {
   }
 }
 
+function applyPreviewMode() {
+  const active = previewMode !== "off";
+  previewBtn.classList.toggle("active", active);
+  previewBtn.textContent = PREVIEW_LABELS[previewMode] ?? "Preview: off";
+  setProcessedStream(active);
+}
+
 function applyProbeUi() {
   document.body.classList.toggle("probe-mode", probeEnabled);
   probeToggleBtn.classList.toggle("active", probeEnabled);
@@ -122,9 +138,9 @@ function applyProbeUi() {
   probeNextBtn.disabled = !probeEnabled;
   probeAutoBtn.disabled = !probeEnabled;
   probeAutoBtn.classList.toggle("active", probeAuto);
-  if (probeEnabled && showProcessed) {
-    showProcessed = false;
-    applyPreviewState();
+  if (probeEnabled && previewMode !== "off") {
+    previewMode = "off";
+    applyPreviewMode();
   }
 }
 
@@ -145,11 +161,6 @@ function updateProbeReadout(data) {
   probeHexEl.textContent = String(data.probe_hex ?? "0");
 }
 
-function applyPreviewState() {
-  previewBtn.classList.toggle("active", showProcessed);
-  setProcessedStream(showProcessed);
-}
-
 function scheduleSettings() {
   settingsDirty = true;
   if (settingsTimer) clearTimeout(settingsTimer);
@@ -160,7 +171,7 @@ async function pushSettings() {
   const body = {
     bg_threshold: parseInt(bgThresholdSlider.value, 10),
     invert,
-    show_processed: showProcessed,
+    preview_mode: previewMode,
   };
 
   try {
@@ -204,10 +215,10 @@ async function pollState() {
       invertBtn.classList.toggle("active", invert);
     }
 
-    if (typeof data.show_processed === "boolean" && !settingsDirty && !probeEnabled) {
-      if (data.show_processed !== showProcessed) {
-        showProcessed = data.show_processed;
-        applyPreviewState();
+    if (typeof data.preview_mode === "string" && !settingsDirty && !probeEnabled) {
+      if (data.preview_mode !== previewMode) {
+        previewMode = data.preview_mode;
+        applyPreviewMode();
       }
     }
 
@@ -262,12 +273,16 @@ bgThresholdSlider.addEventListener("input", () => {
 });
 
 previewBtn.addEventListener("click", async () => {
-  showProcessed = !showProcessed;
-  previewBtn.classList.toggle("active", showProcessed);
+  // Cycle to next mode; skip "background" if no background has been captured yet
+  // (the server will show a black frame anyway, but skip for cleaner UX).
+  const idx = PREVIEW_MODES.indexOf(previewMode);
+  const nextIdx = (idx + 1) % PREVIEW_MODES.length;
+  previewMode = PREVIEW_MODES[nextIdx];
   settingsDirty = true;
-  if (!showProcessed) {
-    setProcessedStream(false);
-  }
+
+  // Update stream immediately so the img src loads in parallel with the fetch.
+  applyPreviewMode();
+
   try {
     await fetch("/api/settings", {
       method: "POST",
@@ -275,13 +290,10 @@ previewBtn.addEventListener("click", async () => {
       body: JSON.stringify({
         bg_threshold: parseInt(bgThresholdSlider.value, 10),
         invert,
-        show_processed: showProcessed,
+        preview_mode: previewMode,
       }),
     });
     settingsDirty = false;
-    if (showProcessed) {
-      setProcessedStream(true);
-    }
   } catch (err) {
     console.error("Settings update failed:", err);
   }
@@ -362,7 +374,7 @@ async function init() {
     statusHost.textContent = `Host: ${window.location.host}`;
     buildGrid();
     updateSliderFill(bgThresholdSlider);
-    applyPreviewState();
+    applyPreviewMode();
     applyProbeUi();
     setInterval(pollState, 100);
 

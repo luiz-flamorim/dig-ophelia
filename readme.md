@@ -364,6 +364,19 @@ Expected byte count must match `BYTES_PER_MODULE` in both `config.h` and Pi `con
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
 
 <details>
+<summary>2026-06-30 — display lag and stability fixes</summary>
+
+- the **browser debugger** felt responsive but the **physical displays** felt laggy and unreliable — missing cells, sometimes whole tiles stuck at full brightness
+- tried pushing for **maximum speed** (faster polling, faster data transfer) — got quicker at first, then the displays **froze** after a second or two
+- found the ESP32 was updating **one cell at a time** — too slow for four tiles; rewrote it to refresh **row by row** instead, which made a big difference
+- stepped back and chose **stability over chasing high FPS** — slower, more careful timing on the display chain, sensible polling, simpler network requests
+- each frame now **resets the displays first**, so tiles stuck in test mode should clear themselves automatically
+- on the Pi, enabled **morphology close** to fill small **holes inside the silhouette** from background subtraction
+- **much faster and more stable** than before — still not a perfect match to the debugger, but the worst failure mode should recover on its own now
+
+</details>
+
+<details>
 <summary>2026-06-29 — second tile, fixing the display mapping</summary>
 
 - wired up a **second tile** side by side with the first — two tiles on one module now

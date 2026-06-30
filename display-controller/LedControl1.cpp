@@ -207,6 +207,51 @@ void LedControl::disableDisplayTest(int addr) {
   spiTransfer(addr, OP_DISPLAYTEST, 0);  // 0 = disable test mode
 }
 
+void LedControl::setRowAllDevices(uint8_t row, const uint8_t* values, int numDevs) {
+  if (row > 7) return;
+
+  const uint8_t opcode = row + 1;  // OP_DIGIT0=1 .. OP_DIGIT7=8
+
+  // Update status buffer so clearDisplay/getState remain consistent.
+  for (int addr = 0; addr < numDevs && addr < maxDevices; addr++) {
+    status[addr * 8 + row] = values[addr];
+  }
+
+  // One SPI transaction updates all devices simultaneously.
+  // Daisy-chain order: shift highest-index device first so it ends up at the end of the chain.
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+  digitalWrite(SPI_CS, LOW);
+
+  for (int addr = maxDevices - 1; addr >= 0; addr--) {
+    const uint8_t val = (addr < numDevs) ? values[addr] : 0x00;
+    SPI.transfer(opcode);
+    SPI.transfer(val);
+  }
+
+  digitalWrite(SPI_CS, HIGH);
+  delayMicroseconds(10);
+  SPI.endTransaction();
+  delayMicroseconds(5);
+}
+
+void LedControl::resetDisplayTestAll() {
+  // Send OP_DISPLAYTEST=0 to every device in one bulk transaction.
+  // Called at the top of every frame render to recover from any chip that
+  // was accidentally put into display-test mode by SPI corruption.
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+  digitalWrite(SPI_CS, LOW);
+
+  for (int addr = maxDevices - 1; addr >= 0; addr--) {
+    SPI.transfer(OP_DISPLAYTEST);
+    SPI.transfer(0x00);
+  }
+
+  digitalWrite(SPI_CS, HIGH);
+  delayMicroseconds(10);
+  SPI.endTransaction();
+  delayMicroseconds(5);
+}
+
 void LedControl::spiTransfer(int addr, volatile byte opcode, volatile byte data) {
   //Create an array with the data to shift out
   int offset = addr * 2;
@@ -223,25 +268,15 @@ void LedControl::spiTransfer(int addr, volatile byte opcode, volatile byte data)
   spidata[offset + 1] = opcode;
   spidata[offset] = data;
 
-  // Start SPI transaction (configures SPI settings for this transfer)
   SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
 
-  //enable the line
   digitalWrite(SPI_CS, LOW);
 
-  //Now shift out the data (in reverse order for daisy chain)
   for (int i = maxbytes; i > 0; i--)
     SPI.transfer(spidata[i - 1]);
 
-  //latch the data onto the display
   digitalWrite(SPI_CS, HIGH);
-
-  // Increased delay to ensure data is latched (especially important for long chains)
   delayMicroseconds(10);
-
-  // End SPI transaction (releases SPI bus)
   SPI.endTransaction();
-
-  // Small delay to allow MAX7219 to process the command
   delayMicroseconds(5);
 }

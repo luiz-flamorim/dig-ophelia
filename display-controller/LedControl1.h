@@ -197,6 +197,23 @@ public:
          * addr	address of the display to control
          */
   void disableDisplayTest(int addr);
+
+  /*
+         * Write a raw byte to one row (digit register) for ALL devices in the
+         * chain in a single SPI transaction — used by the bulk-frame renderer.
+         * Params:
+         * row      digit register to update (0..7)
+         * values   array of byte values, one per device (index 0 = device 0)
+         * numDevs  number of entries in values (must be <= maxDevices)
+         */
+  void setRowAllDevices(uint8_t row, const uint8_t* values, int numDevs);
+
+  /*
+         * Send OP_DISPLAYTEST=0 to every device in one bulk SPI transaction.
+         * Call at the top of each frame render to recover chips that were
+         * accidentally put into display-test mode by SPI noise/corruption.
+         */
+  void resetDisplayTestAll();
 };
 
 #endif  //LedControl.h

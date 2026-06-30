@@ -25,7 +25,7 @@ constexpr const char* WIFI_SSID = "YOUR_WIFI_SSID";
 constexpr const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 constexpr const char* PI_HOST = "192.168.1.157";
 constexpr uint16_t PI_PORT = 8080;
-constexpr uint32_t POLL_INTERVAL_MS = 100;
+constexpr uint32_t POLL_INTERVAL_MS = 120;
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 15000;
 
 // --- Hardware SPI (ESP32 VSPI — data/clk pins ignored by LedControl, uses HW SPI) ---
@@ -40,6 +40,9 @@ constexpr bool SERIAL_DEBUG = false;  // true = log every fetched frame to Seria
 
 // --- Daisy chain: true = each tile is a contiguous SPI block (tile 0 rows 0–7, then tile 1, …) ---
 constexpr bool TILE_CHAIN_BLOCK_ORDER = true;
+
+// --- Tile order: true = chain tile 0 is the rightmost tile (match Pi TILE_MIRROR_X) ---
+constexpr bool TILE_MIRROR_X = false;
 
 // --- Startup ---
 constexpr bool RUN_ROW_TEST_ON_BOOT = true;

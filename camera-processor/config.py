@@ -5,7 +5,7 @@ TILE_ROWS = 8
 TILE_COLS = 16
 
 # --- Tiles per module (one ESP32) — set to match physical wiring ---
-MODULE_TILES_X = 2
+MODULE_TILES_X = 4
 MODULE_TILES_Y = 1
 
 # --- Module layout in the install ---
@@ -15,6 +15,10 @@ INSTALL_MODULES_Y = 1
 # --- Daisy chain (keep in sync with ESP32 TILE_CHAIN_BLOCK_ORDER) ---
 # True: stream bytes tile-by-tile (tile 0 rows 0–7, then tile 1, …).
 TILE_CHAIN_BLOCK_ORDER = True
+
+# --- Tile order vs camera/debugger grid (keep in sync with ESP32 TILE_MIRROR_X) ---
+# True: chain tile 0 is the rightmost column of tiles (your current PCB wiring).
+TILE_MIRROR_X = True
 
 # --- Derived layout (recomputed by recompute_layout()) ---
 MODULE_ROWS = 0
@@ -72,6 +76,15 @@ CAMERA_HEIGHT = 120
 CAMERA_FPS_REQUEST = 30
 CAMERA_WARMUP_FRAMES = 10
 
+# Auto-exposure (AGC) — set False to lock exposure before capturing the background.
+# A fixed exposure makes background subtraction far more stable: without it the camera
+# silently re-adjusts gain when scene brightness changes (e.g. a person enters, or a
+# light turns on), shifting every pixel value and creating false-negative blobs.
+# The CAMERA_EXPOSURE value is V4L2 log-scale (typically −13 … 0). Try −6 first;
+# lower values = shorter shutter / darker image. Only applied on Linux (V4L2).
+CAMERA_AUTO_EXPOSURE = True   # True = let camera manage; False = lock to CAMERA_EXPOSURE
+CAMERA_EXPOSURE = -6          # V4L2 exposure value used when CAMERA_AUTO_EXPOSURE is False
+
 TARGET_FPS = 25
 
 BG_DIFF_THRESHOLD = 30
@@ -79,9 +92,9 @@ BLUR_KERNEL = (5, 5)
 INVERT_DETECTION = False
 MIRROR_HORIZONTAL = True
 
-MORPHOLOGY_ENABLED = False
+MORPHOLOGY_ENABLED = True
 MORPH_KERNEL_SIZE = 3
-MORPH_OPEN = True
+MORPH_OPEN = False
 MORPH_CLOSE = True
 MIN_CONTOUR_AREA = 50
 

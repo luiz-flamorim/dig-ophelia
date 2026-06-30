@@ -65,12 +65,17 @@ def to_grey_blur(frame: np.ndarray, kernel: tuple[int, int]) -> np.ndarray:
     return cv2.GaussianBlur(grey, kernel, 0)
 
 
+def background_diff(grey: np.ndarray, background: np.ndarray) -> np.ndarray:
+    """Return raw per-pixel absolute difference (0–255, not yet thresholded)."""
+    return cv2.absdiff(background, grey)
+
+
 def background_mask(
     grey: np.ndarray,
     background: np.ndarray,
     settings: ProcessingSettings,
 ) -> np.ndarray:
-    diff = cv2.absdiff(background, grey)
+    diff = background_diff(grey, background)
     _, mask = cv2.threshold(diff, settings.bg_diff_threshold, 255, cv2.THRESH_BINARY)
     return mask
 
@@ -115,26 +120,69 @@ def process_frame(
     frame: np.ndarray,
     settings: ProcessingSettings,
     background: Optional[np.ndarray] = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """
     Process one BGR frame using background subtraction.
 
     Returns:
-        grid: uint8 binary matrix
-        preview: BGR frame with mask applied (for debugger)
-        mask: binary mask before grid extraction
+        grid:     uint8 binary matrix (INSTALL_ROWS × INSTALL_COLS)
+        mask:     binary mask (0 or 255) before grid down-scaling
+        grey:     greyscale blurred current frame (for raw preview)
+        diff_raw: per-pixel absdiff before thresholding, or None if no background
     """
     working = prepare_frame(frame, settings)
     grey = to_grey_blur(working, settings.blur_kernel)
 
     if background is None:
         mask = np.zeros_like(grey)
+        diff_raw: Optional[np.ndarray] = None
     else:
-        mask = clean_mask(background_mask(grey, background, settings), settings)
+        diff_raw = background_diff(grey, background)
+        _, binary = cv2.threshold(
+            diff_raw, settings.bg_diff_threshold, 255, cv2.THRESH_BINARY
+        )
+        mask = clean_mask(binary, settings)
 
     grid = grid_from_resize(mask, invert=settings.invert)
-    preview = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-    return grid, preview, mask
+    return grid, mask, grey, diff_raw
+
+
+def build_preview(
+    mask: np.ndarray,
+    grey: np.ndarray,
+    diff_raw: Optional[np.ndarray],
+    background: Optional[np.ndarray],
+    mode: str,
+    threshold: int = config.BG_DIFF_THRESHOLD,
+) -> np.ndarray:
+    """Return a BGR image for the MJPEG debugger stream.
+
+    Modes
+    -----
+    mask       Binary detection mask (white = detected).  Default.
+    diff       Raw absdiff scaled so threshold → white.  Reveals areas where
+               the signal is genuinely zero vs. just below threshold.
+    raw        Greyscale current frame — lets you see what the camera actually
+               captures (useful for spotting AGC / lens / sensor problems).
+    background The captured background reference frame.
+    """
+    if mode == "diff":
+        if diff_raw is not None:
+            scale = 255.0 / max(1, threshold)
+            scaled = np.clip(diff_raw.astype(np.float32) * scale, 0, 255).astype(np.uint8)
+        else:
+            scaled = np.zeros_like(grey)
+        return cv2.cvtColor(scaled, cv2.COLOR_GRAY2BGR)
+
+    if mode == "raw":
+        return cv2.cvtColor(grey, cv2.COLOR_GRAY2BGR)
+
+    if mode == "background":
+        src = background if background is not None else np.zeros_like(grey)
+        return cv2.cvtColor(src, cv2.COLOR_GRAY2BGR)
+
+    # "mask" (default)
+    return cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
 
 
 def draw_grid_overlay(frame: np.ndarray, grid: np.ndarray) -> np.ndarray:

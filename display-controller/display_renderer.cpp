@@ -1,5 +1,7 @@
 #include "display_renderer.h"
 
+#include <string.h>
+
 #include "LedControl1.h"
 #include "config.h"
 
@@ -110,31 +112,35 @@ void tileIdTest() {
 }
 
 void processMessage(const uint8_t* bytes) {
-  uint16_t streamIndex = 0;
+  // Clear any chip accidentally left in display-test mode by SPI noise.
+  lc.resetDisplayTestAll();
 
-  for (uint16_t byteIndex = 0; byteIndex < BYTES_PER_MODULE; byteIndex++) {
-    const uint8_t value = bytes[byteIndex];
+  // Step 1: decode every stream bit into a per-device, per-digit-register byte.
+  // On = 0x7F (all segments lit, same as charTable[8]).  Off = 0x00.
+  uint8_t frame[NUM_DEVICES][8];
+  memset(frame, 0, sizeof(frame));
 
-    for (int8_t bit = 7; bit >= 0; bit--) {
-      if (streamIndex >= MODULE_CELLS) {
-        return;
-      }
+  for (uint16_t streamIndex = 0; streamIndex < MODULE_CELLS; streamIndex++) {
+    const uint16_t byteIndex = streamIndex / 8;
+    const uint8_t  bit       = 7 - (streamIndex % 8);
+    const bool     isActive  = (bytes[byteIndex] >> bit) & 1;
 
-      const bool isActive = (value >> bit) & 1;
-      uint8_t device;
-      uint8_t digit;
-      streamIndexToDevice(streamIndex, &device, &digit);
+    uint8_t device;
+    uint8_t digit;
+    streamIndexToDevice(streamIndex, &device, &digit);
+    correctDigitForReversedRows(device, &digit);
 
-      correctDigitForReversedRows(device, &digit);
+    frame[device][digit] = isActive ? 0x7F : 0x00;
+  }
 
-      if (isActive) {
-        lc.setDigit(device, digit, 8, false);
-      } else {
-        lc.setChar(device, digit, ' ', false);
-      }
-
-      streamIndex++;
+  // Step 2: flush the frame — one SPI transaction per digit register, updating
+  // all devices simultaneously (8 transactions total, regardless of chain length).
+  uint8_t rowValues[NUM_DEVICES];
+  for (uint8_t digitPos = 0; digitPos < 8; digitPos++) {
+    for (uint8_t dev = 0; dev < NUM_DEVICES; dev++) {
+      rowValues[dev] = frame[dev][digitPos];
     }
+    lc.setRowAllDevices(digitPos, rowValues, NUM_DEVICES);
   }
 }
 

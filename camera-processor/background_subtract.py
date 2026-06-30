@@ -62,7 +62,7 @@ def main() -> int:
         if frame is None:
             continue
 
-        grid, _, _ = process_frame(frame, settings, background=background)
+        grid, *_ = process_frame(frame, settings, background=background)
         _ = modules.build_module_payloads(grid)  # headless loop — use server.py for WiFi transport
 
         elapsed = time.perf_counter() - loop_start

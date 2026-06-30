@@ -13,6 +13,20 @@ def cells_per_tile() -> int:
     return config.TILE_ROWS * config.TILE_COLS
 
 
+def logical_tile_x_to_chain(tile_x: int) -> int:
+    """Map debugger/camera tile column to SPI chain tile index."""
+    if config.TILE_MIRROR_X:
+        return config.MODULE_TILES_X - 1 - tile_x
+    return tile_x
+
+
+def chain_tile_x_to_logical(chain_tile_x: int) -> int:
+    """Inverse of logical_tile_x_to_chain()."""
+    if config.TILE_MIRROR_X:
+        return config.MODULE_TILES_X - 1 - chain_tile_x
+    return chain_tile_x
+
+
 def stream_index(row: int, col: int, cols: int) -> int:
     """Logical row-major index (row 0 top, col 0 left)."""
     return row * cols + col
@@ -29,13 +43,15 @@ def logical_to_stream_index(row: int, col: int) -> int:
 
     Logical layout: tiles side-by-side (and stacked for 2×2) in the module grid.
     Stream order: each tile is a contiguous block (tile 0 rows 0–7, then tile 1, …).
+    TILE_MIRROR_X flips which logical tile maps to which chain block.
     """
     if not config.TILE_CHAIN_BLOCK_ORDER:
         return stream_index(row, col, config.MODULE_COLS)
 
     tile_x = col // config.TILE_COLS
     tile_y = row // config.TILE_ROWS
-    tile_index = tile_y * config.MODULE_TILES_X + tile_x
+    chain_tile_x = logical_tile_x_to_chain(tile_x)
+    tile_index = tile_y * config.MODULE_TILES_X + chain_tile_x
     row_in_tile = row % config.TILE_ROWS
     col_in_tile = col % config.TILE_COLS
     in_tile = row_in_tile * config.TILE_COLS + col_in_tile
@@ -53,7 +69,8 @@ def stream_to_logical_coords(index: int) -> tuple[int, int]:
     row_in_tile = in_tile // config.TILE_COLS
     col_in_tile = in_tile % config.TILE_COLS
     tile_y = tile_index // config.MODULE_TILES_X
-    tile_x = tile_index % config.MODULE_TILES_X
+    chain_tile_x = tile_index % config.MODULE_TILES_X
+    tile_x = chain_tile_x_to_logical(chain_tile_x)
     row = tile_y * config.TILE_ROWS + row_in_tile
     col = tile_x * config.TILE_COLS + col_in_tile
     return row, col
