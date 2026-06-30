@@ -261,6 +261,8 @@ class AppHandler(BaseHTTPRequestHandler):
                     "bytes_per_module": config.BYTES_PER_MODULE,
                     "process_width": config.PROCESS_WIDTH,
                     "process_height": config.PROCESS_HEIGHT,
+                    "cell_aspect_w": config.CELL_ASPECT_W,
+                    "cell_aspect_h": config.CELL_ASPECT_H,
                     "module_cells": config.MODULE_CELLS,
                 }
             )
@@ -514,7 +516,7 @@ def main() -> int:
     print(f"Install grid: {config.INSTALL_COLS}×{config.INSTALL_ROWS}  "
           f"({config.MODULE_COUNT} module(s), {config.BYTES_PER_MODULE} bytes each)")
     print(f"Process crop: {config.PROCESS_WIDTH}×{config.PROCESS_HEIGHT}  "
-          f"(matches install aspect)")
+          f"(portrait cells {config.CELL_ASPECT_W}:{config.CELL_ASPECT_H})")
     print(f"ESP32 poll:  GET /api/module/{{id}}  (0–{config.MODULE_COUNT - 1})")
     print("Press Ctrl+C to stop.")
 

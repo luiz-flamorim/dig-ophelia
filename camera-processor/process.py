@@ -25,12 +25,14 @@ def mirror_frame(frame: np.ndarray) -> np.ndarray:
 
 
 def center_crop_to_install_aspect(frame: np.ndarray) -> np.ndarray:
-    """Center-crop to match install grid aspect (INSTALL_COLS : INSTALL_ROWS)."""
+    """Center-crop to match debugger grid aspect (portrait cells)."""
     height, width = frame.shape[:2]
     if height == 0 or width == 0:
         return frame
 
-    target_aspect = config.INSTALL_COLS / config.INSTALL_ROWS
+    target_aspect = (
+        config.INSTALL_COLS * config.CELL_ASPECT_W
+    ) / (config.INSTALL_ROWS * config.CELL_ASPECT_H)
     source_aspect = width / height
 
     if abs(source_aspect - target_aspect) < 1e-6:

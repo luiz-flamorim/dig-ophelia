@@ -4,6 +4,8 @@ let tileCols = 16;
 let tileRows = 8;
 let moduleTilesX = 1;
 let moduleTilesY = 1;
+let cellAspectW = 1;
+let cellAspectH = 2;
 
 const gridDisplay = document.getElementById("grid-display");
 const streamImg = document.getElementById("stream");
@@ -102,14 +104,17 @@ function setMatrixLayout(rows, cols) {
   document.documentElement.style.setProperty("--matrix-rows", String(rows));
   document.documentElement.style.setProperty("--matrix-cols", String(cols));
   document.documentElement.style.setProperty("--tile-cols", String(tileCols));
+  document.documentElement.style.setProperty("--cell-aspect-w", String(cellAspectW));
+  document.documentElement.style.setProperty("--cell-aspect-h", String(cellAspectH));
 
   const isMobile = window.matchMedia("(max-width: 700px)").matches;
   const horizontalPad = isMobile ? 16 : 48;
   const availableW = Math.max(200, window.innerWidth - horizontalPad);
-  const cellSize = isMobile
+  const cellWidth = isMobile
     ? Math.max(9, Math.floor(availableW / cols))
     : Math.max(14, Math.min(18, Math.floor(Math.min(availableW, 640) / cols)));
-  const panelMaxW = cols * cellSize;
+  const cellSize = cellWidth;
+  const panelMaxW = cols * cellWidth;
 
   document.documentElement.style.setProperty("--cell-size", `${cellSize}px`);
   document.documentElement.style.setProperty("--matrix-panel-max-w", `${panelMaxW}px`);
@@ -370,13 +375,15 @@ async function init() {
     tileRows = cfg.tile_rows;
     moduleTilesX = cfg.module_tiles_x;
     moduleTilesY = cfg.module_tiles_y;
+    if (typeof cfg.cell_aspect_w === "number") cellAspectW = cfg.cell_aspect_w;
+    if (typeof cfg.cell_aspect_h === "number") cellAspectH = cfg.cell_aspect_h;
     setMatrixLayout(matrixRows, matrixCols);
     statusHost.textContent = `Host: ${window.location.host}`;
     buildGrid();
     updateSliderFill(bgThresholdSlider);
     applyPreviewMode();
     applyProbeUi();
-    setInterval(pollState, 100);
+    setInterval(pollState, 120);
 
     window.addEventListener("resize", () => {
       setMatrixLayout(matrixRows, matrixCols);

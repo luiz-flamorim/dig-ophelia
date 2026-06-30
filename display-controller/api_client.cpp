@@ -8,6 +8,7 @@
 namespace {
 
 bool wifiConnected = false;
+HTTPClient http;
 
 bool ensureWifi() {
   if (WiFi.status() == WL_CONNECTED) {
@@ -54,6 +55,7 @@ void logHexFrame(const uint8_t* buffer, size_t length) {
 
 void apiBegin() {
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
   ensureWifi();
 }
 
@@ -70,7 +72,7 @@ bool apiFetchModuleFrame(uint8_t* buffer, size_t bufferSize) {
   char url[128];
   snprintf(url, sizeof(url), "http://%s:%u/api/module/%u", PI_HOST, PI_PORT, MODULE_ID);
 
-  HTTPClient http;
+  http.setReuse(true);
   http.setTimeout(500);
   http.begin(url);
 

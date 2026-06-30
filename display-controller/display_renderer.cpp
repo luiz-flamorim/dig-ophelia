@@ -7,10 +7,14 @@
 
 namespace {
 
-constexpr uint8_t DEVICES_PER_ROW = MODULE_COLS / DIGITS_PER_DEVICE;
-constexpr uint8_t DEVICES_PER_TILE_ROW = TILE_COLS / DIGITS_PER_DEVICE;
-constexpr uint8_t DEVICES_PER_TILE = TILE_ROWS * DEVICES_PER_TILE_ROW;
-constexpr uint8_t NUM_DEVICES = MODULE_ROWS * DEVICES_PER_ROW;
+constexpr uint8_t  DEVICES_PER_ROW      = MODULE_COLS / DIGITS_PER_DEVICE;
+constexpr uint8_t  DEVICES_PER_TILE_ROW = TILE_COLS / DIGITS_PER_DEVICE;
+constexpr uint8_t  DEVICES_PER_TILE     = TILE_ROWS * DEVICES_PER_TILE_ROW;
+constexpr uint8_t  NUM_DEVICES          = MODULE_ROWS * DEVICES_PER_ROW;
+// Re-assert all chip registers every N frames to recover from brownout / SPI
+// noise that corrupts shutdown, decode-mode, scan-limit, or intensity.
+// At ~8 FPS this fires every ~7 s; at 25 FPS every ~2.4 s.
+constexpr uint16_t REINIT_PERIOD_FRAMES = 60;
 static_assert(NUM_DEVICES <= 64, "LedControl buffers support up to 64 MAX7219 devices (2x2 module)");
 static_assert(
     NUM_DEVICES == (MODULE_TILES_X * MODULE_TILES_Y) * DEVICES_PER_TILE,
@@ -111,9 +115,27 @@ void tileIdTest() {
   delay(300);
 }
 
+// Re-assert every critical MAX7219 register so a chip whose config was
+// corrupted by brownout or SPI noise recovers without a reboot.
+// Does NOT clear the display — the frame write that follows overwrites it.
+void reinitAllDevices() {
+  for (uint8_t d = 0; d < NUM_DEVICES; d++) {
+    lc.shutdown(d, false);
+    lc.disableDisplayTest(d);
+    lc.setScanLimit(d, 7);
+    lc.setIntensity(d, BASE_BRIGHTNESS);
+  }
+}
+
 void processMessage(const uint8_t* bytes) {
-  // Clear any chip accidentally left in display-test mode by SPI noise.
-  lc.resetDisplayTestAll();
+  // Full register reinit every REINIT_PERIOD_FRAMES; fast display-test clear on other frames.
+  static uint16_t frameCount = 0;
+  if (++frameCount >= REINIT_PERIOD_FRAMES) {
+    frameCount = 0;
+    reinitAllDevices();
+  } else {
+    lc.resetDisplayTestAll();
+  }
 
   // Step 1: decode every stream bit into a per-device, per-digit-register byte.
   // On = 0x7F (all segments lit, same as charTable[8]).  Off = 0x00.

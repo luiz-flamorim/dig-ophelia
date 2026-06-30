@@ -7,17 +7,16 @@ Roadmap for scaling the camera processor from proof of concept to the full insta
 | Term | Meaning |
 |------|---------|
 | **Tile** | One **8×16** slice of the camera mask (128 cells, **16 bytes** packed) |
-| **Module** | **2×2 tiles** = one physical panel, **one ESP32** (**64 bytes** per frame) |
+| **Module** | One physical panel, **one ESP32** — current PCB: **4×1 tiles** (**8×64** cells, **64 bytes** per frame) |
 | **Install** | How many modules and how they are arranged (side by side, stacked, etc.) |
 
 One module on the display:
 
 ```text
-        tile 0  │ tile 1
-        ────────┼────────
-        tile 2  │ tile 3
+    tile 3  │  tile 2  │  tile 1  │  tile 0
+                                     ↑ chain start (module 0)
 
-        → one payload (64 bytes) → one ESP32
+    → one payload (64 bytes) → one ESP32
 ```
 
 
@@ -38,20 +37,19 @@ Adapting the code from the browser / p5.js proof of concept into a Pi-based prod
 <details>
 <summary>Phase 2 — One module, one ESP32 **(In progress)**</summary>
 
-- Pi treats the scene as **2×2 tiles** (32×16 logical grid)
+- Pi treats the scene as **4×1 tiles** (**8×64** logical grid)
 - Split mask → four tile regions → combine into **one module payload** (64 bytes)
 - **One ESP32** pulls its message from the Pi API by **module ID** (e.g. `GET /api/module/0`)
-- ESP32 constants scale to the full module (e.g. 16 rows × 32 cols) — same `processMessage()` logic, larger buffer
-- Optional **2-tile test** before full 2×2 — set `MODULE_TILES_X/Y` to **2×1** (side by side) or **1×2** (stacked) on Pi and ESP32 → **32 bytes**, same pipeline
+- ESP32 constants scale to the full module (**8 rows × 64 cols**) — same bit-packing logic, larger buffer
+- **`TILE_MIRROR_X = True`** on Pi and ESP32 — chain tile 0 is the **rightmost** column (matches PCB wiring)
+- Optional **2-tile test** before full row — set `MODULE_TILES_X/Y` to **2×1** on Pi and ESP32 → **32 bytes**, same pipeline
 
 ```text
-Module 0 (ESP32 #0)
+Module 0 (ESP32 #0)                         chain start →
 
-┌─────┬─────┐
-│ t0  │ t1  │
-├─────┼─────┤
-│ t2  │ t3  │
-└─────┴─────┘
+┌─────┬─────┬─────┬─────┐
+│ t3  │ t2  │ t1  │ t0  │
+└─────┴─────┴─────┴─────┘
 ```
 
 Config signposts (conceptual):
@@ -59,8 +57,8 @@ Config signposts (conceptual):
 ```python
 TILE_ROWS = 8
 TILE_COLS = 16
-MODULE_TILES_X = 2
-MODULE_TILES_Y = 2
+MODULE_TILES_X = 4
+MODULE_TILES_Y = 1
 INSTALL_MODULES_X = 1
 INSTALL_MODULES_Y = 1
 ```
@@ -74,13 +72,15 @@ INSTALL_MODULES_Y = 1
 - **8 tiles** total, **2 ESP32s**
 
 ```text
-Module 0 (ESP32 #0)     Module 1 (ESP32 #1)
+Module 0 (ESP32 #0) — top row              chain start →
+┌─────┬─────┬─────┬─────┐
+│ t3  │ t2  │ t1  │ t0  │
+└─────┴─────┴─────┴─────┘
 
-┌─────┬─────┐           ┌─────┬─────┐
-│ t0  │ t1  │           │ t0  │ t1  │
-├─────┼─────┤           ├─────┼─────┤
-│ t2  │ t3  │           │ t2  │ t3  │
-└─────┴─────┘           └─────┴─────┘
+Module 1 (ESP32 #1) — below
+┌─────┬─────┬─────┬─────┐
+│ t3  │ t2  │ t1  │ t0  │
+└─────┴─────┴─────┴─────┘
 ```
 
 Phase 3 config example:
@@ -92,7 +92,7 @@ INSTALL_MODULES_Y = 2
 
 **User detection** — idle when no one is present, active when someone steps in. No debugger or manual background capture in the live install. Options to explore (same mask → grid → pack pipeline; only the mask source changes):
 
-- **ML person segmentation** (ML5-style — e.g. MediaPipe selfie segmentation, TFLite BodyPix-class models; target **Pi 5 8 GB**) — no stored background; empty room = idle naturally
+- **ML person segmentation** (ML5-style — e.g. MediaPipe selfie segmentation, TFLite BodyPix-class models; target **Pi 5**) — no stored background; empty room = idle naturally
 - **Presence gate** — keep current background subtraction; blank the grid unless enough mask cells / contour area exceed a threshold
 - **Adaptive background** — OpenCV `BackgroundSubtractorMOG2` / KNN; learns the empty scene over time, no fixed snapshot
 - **Auto-recapture when idle** — refresh the background snapshot after N seconds with no significant motion
@@ -119,12 +119,12 @@ Pi 5 is sufficient for this; the work is mostly config, crop/split math, and the
 
 The Pi runs the **camera processor** — it captures webcam input, applies background subtraction, and prepares binary frames for the ESP32 display controller. This section holds everything needed to **install, deploy, and maintain** that setup on the device.
 
-**Pi 5**
+**Pi 5** (primary — dev and install)
 - home `luizamorim@192.168.1.234`
 - opal `luizamorim@192.168.8.107`
 - hostname: `pi5`
 
-**Pi Zero 2W**
+**Pi Zero 2W** (spare)
 - home `luizamorim@192.168.1.157`
 - opal `luizamorim@192.168.8.117`
 - hostname: `pizero`
@@ -139,8 +139,8 @@ The Pi runs the **camera processor** — it captures webcam input, applies backg
 | Deps       | `sudo apt install python3-opencv python3-numpy v4l-utils`    |
 | USB camera | `lsusb` shows camera device                                  |
 | Video dev  | `v4l2-ctl --list-devices` → note `/dev/video*` for webcam    |
-| Debugger   | `python3 debugger.py --index /dev/video0`                    |
-| Run        | `python3 main.py --index /dev/video0`                        |
+| Run (dev)  | `python3 debugger.py --index /dev/video0` → browser `:8080` |
+| Run (install) | `python3 main.py --index /dev/video0`                    |
 
 <details>
 <summary>Install Instructions</summary>
@@ -203,7 +203,9 @@ The code uses a **USB webcam** via OpenCV/V4L2 — not Picamera2.
 
 ## 3. Plug in hardware and check devices
 
-Pi Zero 2W wiring:
+**Pi 5:** plug the USB webcam into any USB port.
+
+**Pi Zero 2W** (spare — needs OTG on the data port):
 
 ```text
 [ PWR port ]  ← dedicated power adapter for the Pi
@@ -229,19 +231,19 @@ Note the path under the camera name (e.g. `/dev/video0`). Use this path in the s
 
 ---
 
-## 4. Production loop
+## 4. Production loop (install)
 
-Run the camera processor headless:
+For the live install, run headless — no browser tuning. Set threshold, invert, and morphology in `config.py` or via the flags below.
 
 ```bash
 cd ~/camera-processor
-python3 main.py --index /dev/video0
+python3 main.py --index /dev/video0 --morphology
 ```
 
-Useful flags:
+Headless-only flags (the **debugger** UI covers threshold and invert live — see §5):
 
 ```bash
-# Tune motion sensitivity (higher = less sensitive)
+# Starting threshold before locking config (higher = less sensitive)
 python3 main.py --index /dev/video0 --bg-threshold 30
 
 # Invert detection if silhouette is backwards
@@ -250,25 +252,31 @@ python3 main.py --index /dev/video0 --invert
 # Pi 5 default is ~25 FPS (config.TARGET_FPS). Lower only if the Pi struggles:
 python3 main.py --index /dev/video0 --fps 5
 
-# Cleaner mask (slower)
+# Morphology is off at startup unless you pass this flag (even though config.py defaults to on)
 python3 main.py --index /dev/video0 --morphology
 ```
 
 ---
 
-## 5. Debugger (development only)
+## 5. Debugger (development)
 
-Runs a web UI on the Pi for tuning background subtraction from my Mac browser. Click **Capture background** with an empty scene before expecting a silhouette.
+Web UI on the Pi for tuning from a Mac or phone browser. **`debugger.py` and `main.py` run the same server** — use `debugger.py` while developing.
+
+- **Threshold** slider and **Invert** — no CLI flags needed
+- **Capture background** — empty scene first, then step in for a silhouette
+- **Preview** — cycles mask / diff / raw / background (overlay matched to grid aspect)
+- **Wiring probe** — lights one SPI chain index at a time on module 0
 
 ```bash
 cd ~/camera-processor
 python3 debugger.py --index /dev/video0
 ```
 
-On my Mac, open: `http://192.168.1.157:8080`
+In the browser (use the Pi IP on your network — Opal example):
 
+`http://192.168.8.107:8080`
 
-For the installation, run `main.py` headless instead.
+For the installation, run `main.py` headless instead (§4).
 
 ---
 
@@ -277,7 +285,7 @@ For the installation, run `main.py` headless instead.
 Once everything works manually:
 
 1. Create `/etc/systemd/system/camera-processor.service`
-2. Set `ExecStart` to `python3 /home/luizamorim/camera-processor/main.py`
+2. Set `ExecStart` to `/usr/bin/python3 /home/luizamorim/camera-processor/main.py --index /dev/video0 --morphology`
 3. Enable and start:
 
 ```bash
@@ -316,9 +324,9 @@ cp config.example.h config.h
 Edit `config.h`:
 
 - **WiFi** — `WIFI_SSID`, `WIFI_PASS`
-- **Pi address** — `PI_HOST` (e.g. `192.168.1.157`), `PI_PORT` (default `8080`)
+- **Pi address** — `PI_HOST` (e.g. `192.168.8.107` on Opal), `PI_PORT` (default `8080`)
 - **Module identity** — `MODULE_ID` (`0` for the first module; `1` for the second in Phase 3)
-- **Tile layout** — `MODULE_TILES_X`, `MODULE_TILES_Y` must match `camera-processor/config.py`
+- **Tile layout** — `MODULE_TILES_X`, `MODULE_TILES_Y`, `TILE_MIRROR_X` must match `camera-processor/config.py`
 
 `config.h` is gitignored — credentials stay local.
 
@@ -332,7 +340,7 @@ Open **`display-controller/`** as the project root in Cursor (see `platformio.in
 - **Upload** — connect ESP32 via USB, then PlatformIO upload
 - **Monitor** — Serial @ `115200` to confirm WiFi and frame polling
 
-On boot the board runs a row test (`RUN_ROW_TEST_ON_BOOT`), then polls `GET http://{PI_HOST}:{PI_PORT}/api/module/{MODULE_ID}` every ~100 ms.
+On boot the board runs a row test (`RUN_ROW_TEST_ON_BOOT`), then polls `GET http://{PI_HOST}:{PI_PORT}/api/module/{MODULE_ID}` every ~120 ms.
 
 ---
 
@@ -341,16 +349,16 @@ On boot the board runs a row test (`RUN_ROW_TEST_ON_BOOT`), then polls `GET http
 Before relying on the display:
 
 1. Pi is running `main.py` (see Raspberry Pi section above)
-2. `MODULE_TILES_X/Y` and payload size match on both sides
+2. `MODULE_TILES_X/Y`, `TILE_MIRROR_X`, and payload size match on both sides
 3. ESP32 and Pi are on the **same WiFi network**
 4. Quick check from any machine on the LAN:
 
 ```bash
-curl -s "http://192.168.1.157:8080/api/health"
-curl -s "http://192.168.1.157:8080/api/module/0" | xxd | head
+curl -s "http://192.168.8.107:8080/api/health"
+curl -s "http://192.168.8.107:8080/api/module/0" | xxd | head
 ```
 
-Expected byte count must match `BYTES_PER_MODULE` in both `config.h` and Pi `config.py`.
+Replace the IP with your Pi address. Expected byte count must match `BYTES_PER_MODULE` in both `config.h` and Pi `config.py`.
 
 </details>
 
@@ -364,15 +372,15 @@ Expected byte count must match `BYTES_PER_MODULE` in both `config.h` and Pi `con
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
 
 <details>
-<summary>2026-06-30 — display lag and stability fixes</summary>
+<summary>2026-06-30 — display stability, debugger, fourth tile</summary>
 
-- the **browser debugger** felt responsive but the **physical displays** felt laggy and unreliable — missing cells, sometimes whole tiles stuck at full brightness
-- tried pushing for **maximum speed** (faster polling, faster data transfer) — got quicker at first, then the displays **froze** after a second or two
-- found the ESP32 was updating **one cell at a time** — too slow for four tiles; rewrote it to refresh **row by row** instead, which made a big difference
-- stepped back and chose **stability over chasing high FPS** — slower, more careful timing on the display chain, sensible polling, simpler network requests
-- each frame now **resets the displays first**, so tiles stuck in test mode should clear themselves automatically
-- on the Pi, enabled **morphology close** to fill small **holes inside the silhouette** from background subtraction
-- **much faster and more stable** than before — still not a perfect match to the debugger, but the worst failure mode should recover on its own now
+- displays were **laggy and unreliable** — pushing for max speed made them **freeze**; rewrote the ESP32 to refresh **row by row**, stepped back for **stability**, reset each frame so stuck-bright tiles recover — **much better now**
+- used **AI heavily** (Sonnet 4.6, Cursor) to work through the frame-rate and processing side of that
+- after adding the **4th tile in a row**, checked the whole setup — debugger and physical panels still didn't quite match, especially when I **stood still**; more **AI-assisted** tweaks on the ESP32
+- **ESP32**: WiFi stays awake, reuses its connection to the Pi, displays **reset periodically** so they don't stay stuck until reboot
+- turned **brightness down to 1** — helped; learned the **debugger refresh rate** and **ESP32 polling** don't need to be the same number — different jobs
+- **debugger**: cleaned up **look and feel**, added options to inspect **camera rendering / thresholding**
+- matched the **camera preview to the grid** — threshold, mask, diff views were still the old wide shape and didn't line up with the boxes on screen
 
 </details>
 

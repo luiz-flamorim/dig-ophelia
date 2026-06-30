@@ -1,14 +1,14 @@
 #pragma once
 
 // Copy this file to config.h and fill in your WiFi credentials.
-// Keep MODULE_TILES_X/Y in sync with camera-processor/config.py.
+// Keep MODULE_TILES_X/Y and TILE_MIRROR_X in sync with camera-processor/config.py.
 
 // --- Tile (fixed — matches Pi config.TILE_ROWS / TILE_COLS) ---
 constexpr uint8_t TILE_ROWS = 8;
 constexpr uint8_t TILE_COLS = 16;
 
-// --- Tiles per module (Phase 1: 1×1, two-tile test: 2×1 or 1×2, full module: 2×2) ---
-constexpr uint8_t MODULE_TILES_X = 1;
+// --- Tiles per module (Phase 1: 1×1, two-tile test: 2×1, current module: 4×1) ---
+constexpr uint8_t MODULE_TILES_X = 4;
 constexpr uint8_t MODULE_TILES_Y = 1;
 
 // --- Derived module grid (this ESP32 drives one module) ---
@@ -23,7 +23,7 @@ constexpr uint8_t MODULE_ID = 0;
 // --- Network ---
 constexpr const char* WIFI_SSID = "YOUR_WIFI_SSID";
 constexpr const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
-constexpr const char* PI_HOST = "192.168.1.157";
+constexpr const char* PI_HOST = "192.168.8.107";
 constexpr uint16_t PI_PORT = 8080;
 constexpr uint32_t POLL_INTERVAL_MS = 120;
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 15000;
@@ -33,7 +33,7 @@ constexpr uint8_t PIN_MOSI = 23;
 constexpr uint8_t PIN_CLK = 18;
 constexpr uint8_t PIN_CS = 4;
 constexpr uint8_t DIGITS_PER_DEVICE = 8;
-constexpr uint8_t BASE_BRIGHTNESS = 3;
+constexpr uint8_t BASE_BRIGHTNESS = 1;
 
 // --- Debug ---
 constexpr bool SERIAL_DEBUG = false;  // true = log every fetched frame to Serial (slow)
@@ -42,7 +42,7 @@ constexpr bool SERIAL_DEBUG = false;  // true = log every fetched frame to Seria
 constexpr bool TILE_CHAIN_BLOCK_ORDER = true;
 
 // --- Tile order: true = chain tile 0 is the rightmost tile (match Pi TILE_MIRROR_X) ---
-constexpr bool TILE_MIRROR_X = false;
+constexpr bool TILE_MIRROR_X = true;
 
 // --- Startup ---
 constexpr bool RUN_ROW_TEST_ON_BOOT = true;

@@ -20,6 +20,10 @@ TILE_CHAIN_BLOCK_ORDER = True
 # True: chain tile 0 is the rightmost column of tiles (your current PCB wiring).
 TILE_MIRROR_X = True
 
+# Debugger cell shape (portrait 7-segment digit — keep in sync with debugger_static CSS/JS)
+CELL_ASPECT_W = 1
+CELL_ASPECT_H = 2
+
 # --- Derived layout (recomputed by recompute_layout()) ---
 MODULE_ROWS = 0
 MODULE_COLS = 0
@@ -34,7 +38,7 @@ MODULE_COUNT = 0
 MATRIX_ROWS = 0
 MATRIX_COLS = 0
 
-# Processing resolution (recomputed — aspect matches install grid)
+# Processing resolution (recomputed — aspect matches portrait debugger cells)
 PROCESS_BASE_WIDTH = 160
 PROCESS_WIDTH = 0
 PROCESS_HEIGHT = 0
@@ -63,7 +67,15 @@ def recompute_layout() -> None:
     MATRIX_COLS = INSTALL_COLS
 
     PROCESS_WIDTH = PROCESS_BASE_WIDTH
-    PROCESS_HEIGHT = max(1, round(PROCESS_BASE_WIDTH * INSTALL_ROWS / INSTALL_COLS))
+    PROCESS_HEIGHT = max(
+        1,
+        round(
+            PROCESS_BASE_WIDTH
+            * INSTALL_ROWS
+            * CELL_ASPECT_H
+            / (INSTALL_COLS * CELL_ASPECT_W)
+        ),
+    )
     DEBUG_PREVIEW_WIDTH = PROCESS_WIDTH
     DEBUG_PREVIEW_HEIGHT = PROCESS_HEIGHT
 
