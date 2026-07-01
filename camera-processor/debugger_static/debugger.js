@@ -4,6 +4,8 @@ let tileCols = 16;
 let tileRows = 8;
 let moduleTilesX = 1;
 let moduleTilesY = 1;
+let installModulesX = 1;
+let installModulesY = 1;
 let cellAspectW = 1;
 let cellAspectH = 2;
 
@@ -22,9 +24,10 @@ const bgCaptureBtn = document.getElementById("bg-capture-btn");
 const probeToggleBtn = document.getElementById("probe-toggle-btn");
 const probeStatus = document.getElementById("probe-status");
 const probeIndexEl = document.getElementById("probe-index");
-const probeDeviceEl = document.getElementById("probe-device");
-const probeDigitEl = document.getElementById("probe-digit");
-const probeHexEl = document.getElementById("probe-hex");
+const probeTileEl = document.getElementById("probe-tile");
+const probeModuleEl = document.getElementById("probe-module");
+const probeModuleButtonsEl = document.getElementById("probe-module-buttons");
+const probeModeButtons = document.querySelectorAll("#probe-mode-buttons button");
 const probePrevBtn = document.getElementById("probe-prev-btn");
 const probeAutoBtn = document.getElementById("probe-auto-btn");
 const probeNextBtn = document.getElementById("probe-next-btn");
@@ -42,6 +45,9 @@ const PREVIEW_LABELS = {
 let previewMode = "off";
 let probeEnabled = false;
 let probeAuto = false;
+let probeMode = "cell";
+let probeModuleId = 0;
+let moduleCount = 1;
 let settingsTimer = null;
 let sliderEditing = false;
 let settingsDirty = false;
@@ -50,8 +56,10 @@ init();
 
 function buildGrid() {
   gridDisplay.innerHTML = "";
-  const tilesX = moduleTilesX;
-  const tilesY = moduleTilesY;
+  // Tile-groups span the whole install (all modules), not just one module's
+  // own tile count — otherwise later modules render data but no visible cells.
+  const tilesX = moduleTilesX * installModulesX;
+  const tilesY = moduleTilesY * installModulesY;
   const showIndices = matrixCols <= 16;
 
   for (let row = 0; row < matrixRows; row++) {
@@ -122,7 +130,13 @@ function setMatrixLayout(rows, cols) {
 
 function setProcessedStream(enabled) {
   if (enabled) {
-    streamImg.src = `/api/stream?t=${Date.now()}`;
+    // Switching between active modes (mask/diff/raw/background) doesn't need a
+    // new connection — the server serves whichever image matches the current
+    // mode on the same stream. Reconnecting on every click piles up concurrent
+    // multipart/x-mixed-replace connections and eventually locks up the tab.
+    if (!streamImg.getAttribute("src")) {
+      streamImg.src = `/api/stream?t=${Date.now()}`;
+    }
   } else {
     streamImg.removeAttribute("src");
   }
@@ -135,6 +149,26 @@ function applyPreviewMode() {
   setProcessedStream(active);
 }
 
+function buildModuleButtons() {
+  probeModuleButtonsEl.innerHTML = "";
+  for (let i = 0; i < moduleCount; i++) {
+    const btn = document.createElement("button");
+    btn.className = "toggle-btn";
+    btn.textContent = `Module ${i}`;
+    btn.disabled = true;
+    btn.addEventListener("click", async () => {
+      try {
+        const data = await postProbe({ module_id: i });
+        probeModuleId = data.probe_module_id;
+        applyProbeUi();
+      } catch (err) {
+        console.error("Probe module select failed:", err);
+      }
+    });
+    probeModuleButtonsEl.appendChild(btn);
+  }
+}
+
 function applyProbeUi() {
   document.body.classList.toggle("probe-mode", probeEnabled);
   probeToggleBtn.classList.toggle("active", probeEnabled);
@@ -143,6 +177,17 @@ function applyProbeUi() {
   probeNextBtn.disabled = !probeEnabled;
   probeAutoBtn.disabled = !probeEnabled;
   probeAutoBtn.classList.toggle("active", probeAuto);
+
+  probeModeButtons.forEach((btn) => {
+    btn.disabled = !probeEnabled;
+    btn.classList.toggle("active", btn.dataset.mode === probeMode);
+  });
+
+  Array.from(probeModuleButtonsEl.children).forEach((btn, i) => {
+    btn.disabled = !probeEnabled;
+    btn.classList.toggle("active", i === probeModuleId);
+  });
+
   if (probeEnabled && previewMode !== "off") {
     previewMode = "off";
     applyPreviewMode();
@@ -161,9 +206,8 @@ async function postProbe(body) {
 function updateProbeReadout(data) {
   if (typeof data.probe_index !== "number") return;
   probeIndexEl.textContent = String(data.probe_index);
-  probeDeviceEl.textContent = String(data.probe_device ?? 0);
-  probeDigitEl.textContent = String(data.probe_digit ?? 0);
-  probeHexEl.textContent = String(data.probe_hex ?? "0");
+  probeTileEl.textContent = String(data.probe_tile ?? 0);
+  probeModuleEl.textContent = String(data.probe_module ?? 0);
 }
 
 function scheduleSettings() {
@@ -203,6 +247,8 @@ async function pollState() {
     if (typeof data.probe_enabled === "boolean") {
       probeEnabled = data.probe_enabled;
       probeAuto = !!data.probe_auto;
+      if (typeof data.probe_mode === "string") probeMode = data.probe_mode;
+      if (typeof data.probe_module_id === "number") probeModuleId = data.probe_module_id;
       applyProbeUi();
       updateProbeReadout(data);
     }
@@ -365,6 +411,18 @@ probeAutoBtn.addEventListener("click", async () => {
   }
 });
 
+probeModeButtons.forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    try {
+      const data = await postProbe({ mode: btn.dataset.mode });
+      probeMode = data.probe_mode;
+      applyProbeUi();
+    } catch (err) {
+      console.error("Probe mode change failed:", err);
+    }
+  });
+});
+
 async function init() {
   try {
     const res = await fetch("/api/config");
@@ -375,11 +433,15 @@ async function init() {
     tileRows = cfg.tile_rows;
     moduleTilesX = cfg.module_tiles_x;
     moduleTilesY = cfg.module_tiles_y;
+    installModulesX = cfg.install_modules_x;
+    installModulesY = cfg.install_modules_y;
+    if (typeof cfg.module_count === "number") moduleCount = cfg.module_count;
     if (typeof cfg.cell_aspect_w === "number") cellAspectW = cfg.cell_aspect_w;
     if (typeof cfg.cell_aspect_h === "number") cellAspectH = cfg.cell_aspect_h;
     setMatrixLayout(matrixRows, matrixCols);
     statusHost.textContent = `Host: ${window.location.host}`;
     buildGrid();
+    buildModuleButtons();
     updateSliderFill(bgThresholdSlider);
     applyPreviewMode();
     applyProbeUi();

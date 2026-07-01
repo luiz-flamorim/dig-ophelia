@@ -201,13 +201,6 @@ body {
   color: var(--text-2);
 }
 
-.probe-hint {
-  font-size: 0.65rem;
-  line-height: 1.4;
-  color: #888;
-  margin-bottom: 10px;
-}
-
 #probe-readout {
   display: flex;
   flex-wrap: wrap;
@@ -532,10 +525,6 @@ label {
 
   #probe-panel {
     padding: 8px 4px;
-  }
-
-  .probe-hint {
-    font-size: 0.5rem;
   }
 
   #probe-readout {

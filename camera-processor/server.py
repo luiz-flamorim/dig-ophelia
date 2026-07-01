@@ -50,31 +50,66 @@ class SharedState:
         self.probe_enabled = False
         self.probe_auto = False
         self.probe_index = 0
-        self.probe_interval_s = 0.8
+        self.probe_interval_s = 0.15
         self.probe_last_advance = 0.0
+        # "cell" | "row" | "col" — row/col light a whole row/column within one tile.
+        self.probe_mode = "cell"
+        self.probe_module_id = 0
+        self.probe_tile_index = 0
 
 
 state = SharedState()
 
 
+def _probe_tiles_per_module() -> int:
+    return config.MODULE_CELLS // (config.TILE_ROWS * config.TILE_COLS)
+
+
+def _probe_total_steps() -> int:
+    """Number of positions the probe index can take in the current mode."""
+    if state.probe_mode == "row":
+        return _probe_tiles_per_module() * config.TILE_ROWS
+    if state.probe_mode == "col":
+        return _probe_tiles_per_module() * config.TILE_COLS
+    return config.MODULE_CELLS
+
+
 def _apply_probe() -> None:
-    """Update grid + module payloads for the current probe stream index."""
+    """Update grid + module payloads for the current probe position."""
     idx = state.probe_index
+    module_id = state.probe_module_id % max(config.MODULE_COUNT, 1)
+
+    if state.probe_mode == "row":
+        tile_index = idx // config.TILE_ROWS
+        row_in_tile = idx % config.TILE_ROWS
+        payload = packer.pack_tile_row(tile_index, row_in_tile, config.MODULE_CELLS)
+    elif state.probe_mode == "col":
+        tile_index = idx // config.TILE_COLS
+        col_in_tile = idx % config.TILE_COLS
+        payload = packer.pack_tile_col(tile_index, col_in_tile, config.MODULE_CELLS)
+    else:
+        tile_index = idx // (config.TILE_ROWS * config.TILE_COLS)
+        payload = packer.pack_single_stream_index(idx, config.MODULE_CELLS)
+
+    # Place the probed module's payload into the full-install debugger grid.
     grid = np.zeros((config.INSTALL_ROWS, config.INSTALL_COLS), dtype=np.uint8)
-    if 0 <= idx < config.MODULE_CELLS:
-        row, col = packer.stream_to_logical_coords(idx)
-        if row < config.INSTALL_ROWS and col < config.INSTALL_COLS:
-            grid[row, col] = 1
+    module_grid = packer.unpack_grid(payload, config.MODULE_ROWS, config.MODULE_COLS)
+    mx = module_id % config.INSTALL_MODULES_X
+    my = module_id // config.INSTALL_MODULES_X
+    row0 = my * config.MODULE_ROWS
+    col0 = mx * config.MODULE_COLS
+    grid[row0 : row0 + config.MODULE_ROWS, col0 : col0 + config.MODULE_COLS] = module_grid
 
     payloads: dict[int, bytes] = {}
-    for module_id in range(config.MODULE_COUNT):
-        if module_id == 0:
-            payloads[module_id] = packer.pack_single_stream_index(idx, config.MODULE_CELLS)
+    for mid in range(config.MODULE_COUNT):
+        if mid == module_id:
+            payloads[mid] = payload
         else:
-            payloads[module_id] = packer.pack_single_stream_index(-1, config.MODULE_CELLS)
+            payloads[mid] = packer.pack_single_stream_index(-1, config.MODULE_CELLS)
 
     state.grid = grid
     state.module_payloads = payloads
+    state.probe_tile_index = tile_index
     state.jpeg = b""
 
 
@@ -87,7 +122,7 @@ def probe_loop() -> None:
             now = time.monotonic()
             if now - state.probe_last_advance < state.probe_interval_s:
                 continue
-            state.probe_index = (state.probe_index + 1) % config.MODULE_CELLS
+            state.probe_index = (state.probe_index + 1) % _probe_total_steps()
             state.probe_last_advance = now
             _apply_probe()
 
@@ -269,8 +304,6 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if path == "/api/state":
             with state.lock:
-                idx = state.probe_index
-                probe_device, probe_digit = packer.stream_to_device_digit(idx)
                 payload = {
                     "grid": state.grid.astype(int).tolist(),
                     "fps": state.fps,
@@ -281,11 +314,13 @@ class AppHandler(BaseHTTPRequestHandler):
                     "has_background": state.background is not None,
                     "probe_enabled": state.probe_enabled,
                     "probe_auto": state.probe_auto,
-                    "probe_index": idx,
-                    "probe_max": config.MODULE_CELLS - 1,
-                    "probe_device": probe_device,
-                    "probe_digit": probe_digit,
-                    "probe_hex": format(idx & 0x0F, "X"),
+                    "probe_mode": state.probe_mode,
+                    "probe_module_id": state.probe_module_id,
+                    "probe_index": state.probe_index,
+                    "probe_max": _probe_total_steps() - 1,
+                    "probe_tile": state.probe_tile_index,
+                    "probe_module": state.probe_module_id,
+                    "module_count": config.MODULE_COUNT,
                 }
             return self._send_json(payload)
 
@@ -388,13 +423,24 @@ class AppHandler(BaseHTTPRequestHandler):
                     state.probe_auto = bool(data["auto"])
                     state.probe_last_advance = time.monotonic()
 
+                if "mode" in data and data["mode"] in ("cell", "row", "col"):
+                    if data["mode"] != state.probe_mode:
+                        state.probe_mode = data["mode"]
+                        state.probe_index = 0
+
+                if "module_id" in data:
+                    module_id = int(data["module_id"]) % max(config.MODULE_COUNT, 1)
+                    if module_id != state.probe_module_id:
+                        state.probe_module_id = module_id
+
                 if state.probe_enabled:
+                    total_steps = _probe_total_steps()
                     if data.get("step") == "next":
-                        state.probe_index = (state.probe_index + 1) % config.MODULE_CELLS
+                        state.probe_index = (state.probe_index + 1) % total_steps
                     elif data.get("step") == "prev":
-                        state.probe_index = (state.probe_index - 1) % config.MODULE_CELLS
+                        state.probe_index = (state.probe_index - 1) % total_steps
                     elif "index" in data:
-                        state.probe_index = int(data["index"]) % config.MODULE_CELLS
+                        state.probe_index = int(data["index"]) % total_steps
                     state.probe_last_advance = time.monotonic()
                     _apply_probe()
 
@@ -402,7 +448,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     "ok": True,
                     "probe_enabled": state.probe_enabled,
                     "probe_auto": state.probe_auto,
+                    "probe_mode": state.probe_mode,
+                    "probe_module_id": state.probe_module_id,
                     "probe_index": state.probe_index,
+                    "probe_max": _probe_total_steps() - 1,
+                    "probe_tile": state.probe_tile_index,
                 }
             return self._send_json(payload)
 

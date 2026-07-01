@@ -7,16 +7,16 @@ Roadmap for scaling the camera processor from proof of concept to the full insta
 | Term | Meaning |
 |------|---------|
 | **Tile** | One **8×16** slice of the camera mask (128 cells, **16 bytes** packed) |
-| **Module** | One physical panel, **one ESP32** — current PCB: **4×1 tiles** (**8×64** cells, **64 bytes** per frame) |
+| **Module** | One physical panel, **one ESP32** — **current test: 2×1 tiles** (**8×32** cells, **32 bytes**); **full PCB target: 4×1** (**8×64**, **64 bytes**) |
 | **Install** | How many modules and how they are arranged (side by side, stacked, etc.) |
 
-One module on the display:
+One module on the display (current 2-tile test; full row is 4 tiles):
 
 ```text
-    tile 3  │  tile 2  │  tile 1  │  tile 0
-                                     ↑ chain start (module 0)
+    tile 1  │  tile 0
+                     ↑ chain start (module 0)
 
-    → one payload (64 bytes) → one ESP32
+    → one payload (32 bytes) → one ESP32
 ```
 
 
@@ -35,21 +35,22 @@ Adapting the code from the browser / p5.js proof of concept into a Pi-based prod
 </details>
 
 <details>
-<summary>Phase 2 — One module, one ESP32 **(In progress)**</summary>
+<summary>Phase 2 — One module, two tiles **(Complete)**</summary>
 
-- Pi treats the scene as **4×1 tiles** (**8×64** logical grid)
-- Split mask → four tile regions → combine into **one module payload** (64 bytes)
-- **One ESP32** pulls its message from the Pi API by **module ID** (e.g. `GET /api/module/0`)
-- ESP32 constants scale to the full module (**8 rows × 64 cols**) — same bit-packing logic, larger buffer
+- Pi treats the scene as **2×1 tiles** (**8×32** logical grid per module)
+- Split mask → two tile regions → combine into **one module payload** (**32 bytes**)
+- **One ESP32** pulls its message from the Pi API by **module ID** (`GET /api/module/0`)
+- ESP32 constants scale to the module grid (**8 rows × 32 cols**) — same bit-packing logic, larger buffer than Phase 1
 - **`TILE_MIRROR_X = True`** on Pi and ESP32 — chain tile 0 is the **rightmost** column (matches PCB wiring)
-- Optional **2-tile test** before full row — set `MODULE_TILES_X/Y` to **2×1** on Pi and ESP32 → **32 bytes**, same pipeline
+- Full **4×1** row on one module is the next hardware step on the same PCB — bump `MODULE_TILES_X` to **4** → **64 bytes**, same pipeline
 
 ```text
-Module 0 (ESP32 #0)                         chain start →
+Module 0 (ESP32 #0)
 
-┌─────┬─────┬─────┬─────┐
-│ t3  │ t2  │ t1  │ t0  │
-└─────┴─────┴─────┴─────┘
+       ┌─> chain start
+┌─────┬─────┐
+│ t1  │ t0  │
+└─────┴─────┘
 ```
 
 Config signposts (conceptual):
@@ -57,7 +58,7 @@ Config signposts (conceptual):
 ```python
 TILE_ROWS = 8
 TILE_COLS = 16
-MODULE_TILES_X = 4
+MODULE_TILES_X = 2
 MODULE_TILES_Y = 1
 INSTALL_MODULES_X = 1
 INSTALL_MODULES_Y = 1
@@ -66,47 +67,99 @@ INSTALL_MODULES_Y = 1
 </details>
 
 <details>
-<summary>Phase 3 — Second module below</summary>
+<summary>Phase 3 — Second module, one row **(Complete)**</summary>
 
-- Add a **second module** under the first — same processing code, second ESP32 (`module/1`)
-- **8 tiles** total, **2 ESP32s**
+- Add a **second module** beside the first — same processing code, second ESP32 (`GET /api/module/1`)
+- **4 tiles** total (**2 per module**), **2 ESP32s**, install grid **8×64**
 
 ```text
-Module 0 (ESP32 #0) — top row              chain start →
-┌─────┬─────┬─────┬─────┐
-│ t3  │ t2  │ t1  │ t0  │
-└─────┴─────┴─────┴─────┘
+       ┌─> chain start  
+┌─────┬─────┐ ┌─────┬─────┐
+│ t1  │ t0  │ │ t1  │ t0  │
+└─────┴─────┘ └─────┴─────┘
+| Module #0 | | Module #1 |
 
-Module 1 (ESP32 #1) — below
-┌─────┬─────┬─────┬─────┐
-│ t3  │ t2  │ t1  │ t0  │
-└─────┴─────┴─────┴─────┘
 ```
 
 Phase 3 config example:
 
 ```python
-INSTALL_MODULES_X = 1
-INSTALL_MODULES_Y = 2
+MODULE_TILES_X = 2
+MODULE_TILES_Y = 1
+INSTALL_MODULES_X = 2
+INSTALL_MODULES_Y = 1
 ```
 
-**User detection** — idle when no one is present, active when someone steps in. No debugger or manual background capture in the live install. Options to explore (same mask → grid → pack pipeline; only the mask source changes):
+Each board needs its own **`MODULE_ID`** (`0` and `1`) in `display-controller/config.h`.
+
+</details>
+
+<details>
+<summary>Phase 4 — More rows</summary>
+
+- Stack **additional modules below** — same processing code, one ESP32 per module
+- Target: **6 rows × 2 modules** → **24 tiles**, **12 ESP32s** (`MODULE_ID` **0–11**)
+
+```text
+       ┌─> chain start  
+┌─────┬─────┐ ┌─────┬─────┐
+│ t1  │ t0  │ │ t1  │ t0  │
+└─────┴─────┘ └─────┴─────┘
+ Module #0     Module #1
+
+┌─────┬─────┐ ┌─────┬─────┐
+│ t1  │ t0  │ │ t1  │ t0  │
+└─────┴─────┘ └─────┴─────┘
+ Module #2     Module #3
+
+┌─────┬─────┐ ┌─────┬─────┐
+│ t1  │ t0  │ │ t1  │ t0  │
+└─────┴─────┘ └─────┴─────┘
+ Module #4     Module #5
+
+┌─────┬─────┐ ┌─────┬─────┐
+│ t1  │ t0  │ │ t1  │ t0  │
+└─────┴─────┘ └─────┴─────┘
+ Module #6     Module #7
+
+┌─────┬─────┐ ┌─────┬─────┐
+│ t1  │ t0  │ │ t1  │ t0  │
+└─────┴─────┘ └─────┴─────┘
+ Module #8     Module #9
+
+┌─────┬─────┐ ┌─────┬─────┐
+│ t1  │ t0  │ │ t1  │ t0  │
+└─────┴─────┘ └─────┴─────┘
+ Module #10    Module #11
+```
+
+Phase 4 config example (2 modules wide × 6 rows):
+
+```python
+MODULE_TILES_X = 2
+MODULE_TILES_Y = 1
+INSTALL_MODULES_X = 2
+INSTALL_MODULES_Y = 6
+```
+
+Install grid: **48×64** cells (8 rows per module × 6 module-rows; 32 cols per module × 2 modules wide).
+
+</details>
+
+<details>
+<summary>Later — more modules **(to review)**</summary>
+
+Scale by changing install layout only — no new processing pipeline:
+
+- One camera → one mask → split into tiles per module → pack per module → API by module ID
+- Example: `INSTALL_MODULES_X = 2`, `INSTALL_MODULES_Y = 2` → four modules, four ESP32s
+- **User detection** — idle when no one is present, active when someone steps in. No debugger or manual background capture in the live install. Options to explore (same mask → grid → pack pipeline; only the mask source changes):
 
 - **ML person segmentation** (ML5-style — e.g. MediaPipe selfie segmentation, TFLite BodyPix-class models; target **Pi 5**) — no stored background; empty room = idle naturally
 - **Presence gate** — keep current background subtraction; blank the grid unless enough mask cells / contour area exceed a threshold
 - **Adaptive background** — OpenCV `BackgroundSubtractorMOG2` / KNN; learns the empty scene over time, no fixed snapshot
 - **Auto-recapture when idle** — refresh the background snapshot after N seconds with no significant motion
 - **Motion trigger** — frame differencing only; idle until movement, then show disturbance (lo-fi, no background model)
-
-</details>
-
-<details>
-<summary>Later — more modules</summary>
-
-Scale by changing install layout only — no new processing pipeline:
-
-- One camera → one mask → split into tiles per module → pack per module → API by module ID
-- Example: `INSTALL_MODULES_X = 2`, `INSTALL_MODULES_Y = 2` → four modules, four ESP32s
 
 Pi 5 is sufficient for this; the work is mostly config, crop/split math, and the module API.
 
@@ -265,7 +318,7 @@ Web UI on the Pi for tuning from a Mac or phone browser. **`debugger.py` and `ma
 - **Threshold** slider and **Invert** — no CLI flags needed
 - **Capture background** — empty scene first, then step in for a silhouette
 - **Preview** — cycles mask / diff / raw / background (overlay matched to grid aspect)
-- **Wiring probe** — lights one SPI chain index at a time on module 0
+- **Wiring probe** — step through **cell**, **row**, or **col** on any module; pick module ID when multiple ESP32s are connected; manual prev/next or auto-advance
 
 ```bash
 cd ~/camera-processor
@@ -305,6 +358,7 @@ The **display controller** firmware lives in `display-controller/` at the repo r
 |-----------|--------------------------------------------------------------|
 | Config    | Copy `config.example.h` → `config.h` (gitignored)            |
 | Layout    | `MODULE_TILES_X/Y` match Pi; set `MODULE_ID` per board       |
+| SPI       | `SPI_CLOCK_HZ` in `config.h` — lower (e.g. `250000`) if digits drop out on longer chains |
 | Network   | `WIFI_SSID`, `WIFI_PASS`, `PI_HOST` (Pi IP on same WiFi)    |
 | Build     | Open `display-controller/` in Cursor with PlatformIO         |
 | Flash     | Upload via PlatformIO (USB to ESP32)                         |
@@ -325,8 +379,9 @@ Edit `config.h`:
 
 - **WiFi** — `WIFI_SSID`, `WIFI_PASS`
 - **Pi address** — `PI_HOST` (e.g. `192.168.8.107` on Opal), `PI_PORT` (default `8080`)
-- **Module identity** — `MODULE_ID` (`0` for the first module; `1` for the second in Phase 3)
+- **Module identity** — `MODULE_ID` unique per board when `INSTALL_MODULES_X` or `INSTALL_MODULES_Y` > 1 (e.g. `0` and `1` for Phase 3)
 - **Tile layout** — `MODULE_TILES_X`, `MODULE_TILES_Y`, `TILE_MIRROR_X` must match `camera-processor/config.py`
+- **SPI clock** — `SPI_CLOCK_HZ` (default `500000`); reduce if the daisy chain loses digits as you add tiles or modules
 
 `config.h` is gitignored — credentials stay local.
 
@@ -340,7 +395,7 @@ Open **`display-controller/`** as the project root in Cursor (see `platformio.in
 - **Upload** — connect ESP32 via USB, then PlatformIO upload
 - **Monitor** — Serial @ `115200` to confirm WiFi and frame polling
 
-On boot the board runs a row test (`RUN_ROW_TEST_ON_BOOT`), then polls `GET http://{PI_HOST}:{PI_PORT}/api/module/{MODULE_ID}` every ~120 ms.
+On boot the board runs a row test (`RUN_ROW_TEST_ON_BOOT`), then polls `GET http://{PI_HOST}:{PI_PORT}/api/module/{MODULE_ID}` every ~120 ms. HTTP connections are opened fresh each poll — the Pi serves HTTP/1.0 and closes the socket after every response. WiFi TX power is set to maximum in firmware to reduce packet loss from RF noise near the SPI/LED chain.
 
 ---
 
@@ -349,7 +404,7 @@ On boot the board runs a row test (`RUN_ROW_TEST_ON_BOOT`), then polls `GET http
 Before relying on the display:
 
 1. Pi is running `main.py` (see Raspberry Pi section above)
-2. `MODULE_TILES_X/Y`, `TILE_MIRROR_X`, and payload size match on both sides
+2. `MODULE_TILES_X/Y`, `TILE_MIRROR_X`, payload size, and **`MODULE_ID` per board** match on both sides
 3. ESP32 and Pi are on the **same WiFi network**
 4. Quick check from any machine on the LAN:
 
@@ -370,6 +425,26 @@ Replace the IP with your Pi address. Expected byte count must match `BYTES_PER_M
 # Journal
 
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
+
+<details>
+<summary>2026-07-01 — missing digits, WiFi interference, two tiles per ESP32</summary>
+
+- digging into the **ESP32 side** — one module working, planning five more rows, but **digits going missing** on the physical display, worst on the **last tile in the row**
+- ruled out **wiring and power** first — already had a redundant 5V line across the boards
+- the **signal speed** was too fast for how long the tile chain had gotten — dropped from 1 MHz to **500 kHz**, then **250 kHz** when the last tile was still dropping digits; better each time, but not perfect
+- new symptoms: occasional **freezes**, and sometimes the whole panel would **flash fully on** for a frame then go dark
+- used **Claude Code heavily** to debug — added temporary logging on **Pi and ESP32**, ruled out a **memory leak** (heap stayed steady)
+- found the ESP32 was **reusing its network connection** in a way the Pi server didn't support — fixed by opening a **fresh connection** each time
+- freeze still happening — **ping test** showed the Pi rock solid, the **ESP32 dropping packets**
+- fixed the **WiFi channel** on the router (was on auto) — helped general stability but not the ESP-specific problem
+- theory: the ESP32 sits right next to the **fast-switching LED wiring**, interfering with its own WiFi — **tin foil shield + grounding** helped a lot; also **boosted WiFi transmit power** in software
+- hit a real limit with **4 tiles on one ESP32** — chain too long, too much interference to fully solve — **decided to scale down to 2 tiles per ESP32** going forward instead of chasing it further
+- wired up a **second ESP32** for the next pair of tiles — looked broken at first, but it was just a **Pi settings file** that hadn't been updated; fixed once re-copied
+- once stable, **cleaned out the debug logging**, bumped signal speed back to **500 kHz** on the shorter chains, and fixed the **boot test** so each board clearly shows **module + tile ID** across the whole tile
+- improved the **wiring-test tool** in the debugger — clearer readout, faster auto-scan, whole rows/columns, works for the **second board** too
+- fixed a small bug where clicking through **camera preview views** too fast could freeze the debugger tab — didn't affect the mirror, just the tuning tool
+
+</details>
 
 <details>
 <summary>2026-06-30 — display stability, debugger, fourth tile</summary>

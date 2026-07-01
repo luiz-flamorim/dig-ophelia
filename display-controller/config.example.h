@@ -7,8 +7,8 @@
 constexpr uint8_t TILE_ROWS = 8;
 constexpr uint8_t TILE_COLS = 16;
 
-// --- Tiles per module (Phase 1: 1×1, two-tile test: 2×1, current module: 4×1) ---
-constexpr uint8_t MODULE_TILES_X = 4;
+// --- Tiles per module (Phase 1: 1×1, Phase 2: 2×1, full PCB row: 4×1) ---
+constexpr uint8_t MODULE_TILES_X = 2;
 constexpr uint8_t MODULE_TILES_Y = 1;
 
 // --- Derived module grid (this ESP32 drives one module) ---
@@ -34,6 +34,8 @@ constexpr uint8_t PIN_CLK = 18;
 constexpr uint8_t PIN_CS = 4;
 constexpr uint8_t DIGITS_PER_DEVICE = 8;
 constexpr uint8_t BASE_BRIGHTNESS = 1;
+// Lower this (e.g. 250000) if digits drop out on longer chains (more tiles/modules).
+constexpr uint32_t SPI_CLOCK_HZ = 500000;
 
 // --- Debug ---
 constexpr bool SERIAL_DEBUG = false;  // true = log every fetched frame to Serial (slow)
@@ -47,5 +49,5 @@ constexpr bool TILE_MIRROR_X = true;
 // --- Startup ---
 constexpr bool RUN_ROW_TEST_ON_BOOT = true;
 
-// --- Hardware workaround: reverse last two rows (remove when PCB is fixed) ---
-constexpr bool FIX_REVERSED_LAST_TWO_ROWS = true;
+// --- Hardware workaround: reverse last two rows (set true on PCBs that need it) ---
+constexpr bool FIX_REVERSED_LAST_TWO_ROWS = false;

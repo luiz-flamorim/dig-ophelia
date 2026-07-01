@@ -56,6 +56,10 @@ void logHexFrame(const uint8_t* buffer, size_t length) {
 void apiBegin() {
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
+  // Max TX power — partial mitigation for local RF noise from the SPI/LED chain
+  // running right next to this board (suspected cause of ESP32-only packet loss;
+  // see ping comparison against the Pi on the same network).
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);
   ensureWifi();
 }
 
@@ -72,7 +76,11 @@ bool apiFetchModuleFrame(uint8_t* buffer, size_t bufferSize) {
   char url[128];
   snprintf(url, sizeof(url), "http://%s:%u/api/module/%u", PI_HOST, PI_PORT, MODULE_ID);
 
-  http.setReuse(true);
+  // Pi's server speaks HTTP/1.0 (Python http.server default) and closes the
+  // socket after every response — setReuse(true) tried to keep it alive
+  // across polls, eventually reusing a socket the Pi had already closed
+  // (read timeout, then a hard RST). Open a fresh connection every poll instead.
+  http.setReuse(false);
   http.setTimeout(500);
   http.begin(url);
 

@@ -5,11 +5,11 @@ TILE_ROWS = 8
 TILE_COLS = 16
 
 # --- Tiles per module (one ESP32) — set to match physical wiring ---
-MODULE_TILES_X = 4
+MODULE_TILES_X = 2
 MODULE_TILES_Y = 1
 
 # --- Module layout in the install ---
-INSTALL_MODULES_X = 1
+INSTALL_MODULES_X = 2
 INSTALL_MODULES_Y = 1
 
 # --- Daisy chain (keep in sync with ESP32 TILE_CHAIN_BLOCK_ORDER) ---

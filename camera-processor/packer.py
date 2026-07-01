@@ -6,8 +6,6 @@ import numpy as np
 
 import config
 
-DIGITS_PER_DEVICE = 8
-
 
 def cells_per_tile() -> int:
     return config.TILE_ROWS * config.TILE_COLS
@@ -76,23 +74,6 @@ def stream_to_logical_coords(index: int) -> tuple[int, int]:
     return row, col
 
 
-def stream_to_device_digit(index: int) -> tuple[int, int]:
-    """Map stream index to MAX7219 device + digit (matches ESP32 firmware)."""
-    if not config.TILE_CHAIN_BLOCK_ORDER:
-        return index // DIGITS_PER_DEVICE, index % DIGITS_PER_DEVICE
-
-    cpt = cells_per_tile()
-    tile_index = index // cpt
-    in_tile = index % cpt
-    row_in_tile = in_tile // config.TILE_COLS
-    col_in_tile = in_tile % config.TILE_COLS
-    devices_per_tile_row = config.TILE_COLS // DIGITS_PER_DEVICE
-    devices_per_tile = config.TILE_ROWS * devices_per_tile_row
-    device = tile_index * devices_per_tile + row_in_tile * devices_per_tile_row + col_in_tile // DIGITS_PER_DEVICE
-    digit = col_in_tile % DIGITS_PER_DEVICE
-    return device, digit
-
-
 def pack_single_stream_index(index: int, total_cells: int) -> bytes:
     """Pack a frame with exactly one stream index lit (wiring probe)."""
     bytes_count = (total_cells + 7) // 8
@@ -101,6 +82,33 @@ def pack_single_stream_index(index: int, total_cells: int) -> bytes:
         byte_index = index // 8
         bit_index = 7 - (index % 8)
         packed[byte_index] |= 1 << bit_index
+    return bytes(packed)
+
+
+def _set_stream_bit(packed: bytearray, index: int, total_cells: int) -> None:
+    if 0 <= index < total_cells:
+        byte_index = index // 8
+        bit_index = 7 - (index % 8)
+        packed[byte_index] |= 1 << bit_index
+
+
+def pack_tile_row(tile_index: int, row_in_tile: int, total_cells: int) -> bytes:
+    """Pack a frame with one full row (all columns) of one tile lit (wiring probe)."""
+    bytes_count = (total_cells + 7) // 8
+    packed = bytearray(bytes_count)
+    base = tile_index * cells_per_tile() + row_in_tile * config.TILE_COLS
+    for col in range(config.TILE_COLS):
+        _set_stream_bit(packed, base + col, total_cells)
+    return bytes(packed)
+
+
+def pack_tile_col(tile_index: int, col_in_tile: int, total_cells: int) -> bytes:
+    """Pack a frame with one full column (all rows) of one tile lit (wiring probe)."""
+    bytes_count = (total_cells + 7) // 8
+    packed = bytearray(bytes_count)
+    base = tile_index * cells_per_tile() + col_in_tile
+    for row in range(config.TILE_ROWS):
+        _set_stream_bit(packed, base + row * config.TILE_COLS, total_cells)
     return bytes(packed)
 
 

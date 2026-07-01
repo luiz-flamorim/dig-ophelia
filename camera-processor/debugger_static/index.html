@@ -62,16 +62,16 @@
           <button id="probe-toggle-btn" class="toggle-btn">Wiring probe</button>
           <span id="probe-status" class="probe-status">off</span>
         </div>
-        <p class="probe-hint">
-          Lights one SPI stream index at a time on module 0 (tile-block chain order).
-          Note which physical digit lights for each index — yellow cell is the
-          naive software guess until a hardware map is built from your notes.
-        </p>
         <div id="probe-readout">
           <span>index <strong id="probe-index">0</strong></span>
-          <span>device <strong id="probe-device">0</strong></span>
-          <span>digit <strong id="probe-digit">0</strong></span>
-          <span>hex <strong id="probe-hex">0</strong></span>
+          <span>tile <strong id="probe-tile">0</strong></span>
+          <span>module <strong id="probe-module">0</strong></span>
+        </div>
+        <div id="probe-module-buttons" class="buttons-container probe-buttons"></div>
+        <div id="probe-mode-buttons" class="buttons-container probe-buttons">
+          <button id="probe-mode-cell-btn" class="toggle-btn" data-mode="cell" disabled>Cell</button>
+          <button id="probe-mode-row-btn" class="toggle-btn" data-mode="row" disabled>Row</button>
+          <button id="probe-mode-col-btn" class="toggle-btn" data-mode="col" disabled>Col</button>
         </div>
         <div class="buttons-container probe-buttons">
           <button id="probe-prev-btn" class="toggle-btn" disabled>Prev</button>

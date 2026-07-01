@@ -30,6 +30,8 @@
 
 #include "LedControl1.h"
 
+#include "config.h"
+
 //the opcodes for the MAX7221 and MAX7219
 #define OP_NOOP 0
 #define OP_DIGIT0 1
@@ -219,7 +221,7 @@ void LedControl::setRowAllDevices(uint8_t row, const uint8_t* values, int numDev
 
   // One SPI transaction updates all devices simultaneously.
   // Daisy-chain order: shift highest-index device first so it ends up at the end of the chain.
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+  SPI.beginTransaction(SPISettings(SPI_CLOCK_HZ, MSBFIRST, SPI_MODE0));
   digitalWrite(SPI_CS, LOW);
 
   for (int addr = maxDevices - 1; addr >= 0; addr--) {
@@ -238,7 +240,7 @@ void LedControl::resetDisplayTestAll() {
   // Send OP_DISPLAYTEST=0 to every device in one bulk transaction.
   // Called at the top of every frame render to recover from any chip that
   // was accidentally put into display-test mode by SPI corruption.
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+  SPI.beginTransaction(SPISettings(SPI_CLOCK_HZ, MSBFIRST, SPI_MODE0));
   digitalWrite(SPI_CS, LOW);
 
   for (int addr = maxDevices - 1; addr >= 0; addr--) {
@@ -268,7 +270,7 @@ void LedControl::spiTransfer(int addr, volatile byte opcode, volatile byte data)
   spidata[offset + 1] = opcode;
   spidata[offset] = data;
 
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+  SPI.beginTransaction(SPISettings(SPI_CLOCK_HZ, MSBFIRST, SPI_MODE0));
 
   digitalWrite(SPI_CS, LOW);
 

@@ -76,9 +76,11 @@ void setAllDigitsOff() {
   delayMicroseconds(100);
 }
 
-// Boot wiring test: each tile shows {MODULE_ID}{tileIndex} (e.g. 00, 01, 02, 03).
-// Tiles are side-by-side within a module; modules stack in the install.
-// Matching digits (00, 11) fill every cell; mixed digits alternate per column (0101…).
+// Boot wiring test: every digit in a tile shows {MODULE_ID}{tileIndex}, repeating
+// across the whole tile so it's visible at a glance (e.g. module 0 tile 1 fills with
+// 0,1,0,1,...; module 1 tile 0 fills with 1,0,1,0,...). Column 0 of every row is
+// always the module digit, column 1 the tile digit, repeating — read any row left
+// to right in pairs to get the two-character code.
 void tileIdTest() {
   setAllDigitsOff();
   delay(500);
@@ -91,15 +93,7 @@ void tileIdTest() {
 
     const uint8_t moduleDigit = MODULE_ID % 10;
     const uint8_t tileDigit = tileIndex % 10;
-
-    uint8_t value;
-    if (moduleDigit == tileDigit) {
-      value = moduleDigit;
-    } else if (colInTile % 2 == 0) {
-      value = moduleDigit;
-    } else {
-      value = tileDigit;
-    }
+    const uint8_t value = (colInTile % 2 == 0) ? moduleDigit : tileDigit;
 
     uint8_t device;
     uint8_t digit;
