@@ -13,10 +13,15 @@ Roadmap for scaling the camera processor from proof of concept to the full insta
 One module on the display (current 2-tile test; full row is 4 tiles):
 
 ```text
-    tile 1  │  tile 0
-                     ↑ chain start (module 0)
+       ┌─> chain start
+┌─────┬─────┐
+│ t1  │ t0  │   ← current test (2 tiles, 32 bytes)
+└─────┴─────┘
+| Module #0 |
 
-    → one payload (32 bytes) → one ESP32
+→ one payload → one ESP32
+
+Full PCB row (target): add two tiles on the right → 64 bytes, same module
 ```
 
 
