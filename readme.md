@@ -7,7 +7,7 @@ Roadmap for scaling the camera processor from proof of concept to the full insta
 | Term | Meaning |
 |------|---------|
 | **Tile** | One **8×16** slice of the camera mask (128 cells, **16 bytes** packed) |
-| **Module** | One physical panel, **one ESP32** — **current test: 2×1 tiles** (**8×32** cells, **32 bytes**); **full PCB target: 4×1** (**8×64**, **64 bytes**) |
+| **Module** | One physical panel, **one ESP32** — **current test: 2×1 tiles** (**8×32** cells, **32 bytes**)|
 | **Install** | How many modules and how they are arranged (side by side, stacked, etc.) |
 
 One module on the display (current 2-tile test; full row is 4 tiles):
@@ -189,14 +189,15 @@ The Pi runs the **camera processor** — it captures webcam input, applies backg
 
 **Code on Mac:** `Code/camera-processor/` — copy to the Pi from the Mac terminal, not from inside an SSH session.
 
-| Step        | Command / check                                             |
-|------------|--------------------------------------------------------------|
-| Copy code  | `rsync` or `scp` **from Mac**                                |
-| Deps       | `sudo apt install python3-opencv python3-numpy v4l-utils`    |
-| USB camera | `lsusb` shows camera device                                  |
-| Video dev  | `v4l2-ctl --list-devices` → note `/dev/video*` for webcam    |
-| Run (dev)  | `python3 debugger.py --index /dev/video0` → browser `:8080` |
-| Run (install) | `python3 main.py --index /dev/video0`                    |
+| Step        | Command / check                                                     |
+|------------|--------------------------------------------------------------------- |
+| Copy code  | `rsync` or `scp` **from Mac**                                        |
+| Deps       | `sudo apt install python3-opencv python3-numpy v4l-utils`            |
+| USB camera | `lsusb` shows camera device                                          |
+| Video dev  | `v4l2-ctl --list-devices` → note `/dev/video*` for webcam            |
+| Run (dev)  | `python3 debugger.py --index /dev/video0` → browser `:8080`          |
+| Run (install) | `python3 main.py --index /dev/video0`                             |
+| New module | change the number of rows on config.py => `INSTALL_MODULES_Y = 2`    |
 
 <details>
 <summary>Install Instructions</summary>
@@ -428,6 +429,16 @@ Replace the IP with your Pi address. Expected byte count must match `BYTES_PER_M
 # Journal
 
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
+
+<details>
+<summary>2026-07-04 — modules 2 & 3, frame, two rows working</summary>
+
+- added **modules 2 and 3** — four modules on the install now
+- **3D-printed covers** for the ESP boards
+- finished the **frame** to hold the piece together
+- tested **two rows** end to end — **very successful**
+
+</details>
 
 <details>
 <summary>2026-07-01 — missing digits, WiFi interference, two tiles per ESP32</summary>
