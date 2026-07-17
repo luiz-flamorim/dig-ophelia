@@ -431,6 +431,7 @@ Informal log of what happened as the project moved forward — meetings, decisio
 
 - day at **Hatch Labs** printing the **remaining 3D supports** — the last of the mounts for the frame
 - with these done, every board (Pi, ESPs, router, power supply) will have its own printed home on the aluminium frame
+- kept chipping away at the **documentation** in the downtime between prints — writing up the build process as I go
 
 </details>
 
@@ -439,6 +440,7 @@ Informal log of what happened as the project moved forward — meetings, decisio
 
 - **reprinted** the corrected **router** and **power supply** supports — dry-fitted them onto the extruded aluminium frame, sitting properly now
 - back on the bench **soldering more tiles** — up to **20 ready** now for the install
+- more **writing on the documentation** and **research** — pulling references together for the report
 
 </details>
 
@@ -447,12 +449,14 @@ Informal log of what happened as the project moved forward — meetings, decisio
 
 - designed and **3D printed the ESP32 supports** — small brackets so each board clips onto the frame near its tiles
 - **soldered the cables** and prepped the **connections for all the boards** — tidier power and data runs across the structure
+- carried on with the **documentation and research** in the evening — notes towards the report
 
 </details>
 
 <details>
-<summary>2026-07-10 — first support printed + corrections, more reading</summary>
+<summary>2026-07-09 — Supervision, first support printed + corrections, more reading</summary>
 
+- met my **supervisor** for a **project update** — talked through where the build is, the display pipeline, and next steps; good to sanity-check the direction against the timeline
 - **3D printed** the first **Raspberry Pi support** — fit wasn't quite right, so I **corrected the model** and set it up to reprint
 - more time on **concept and documentation** — writing up notes from the reading into the report
 
@@ -463,6 +467,7 @@ Informal log of what happened as the project moved forward — meetings, decisio
 
 - kept building out the **frame structure** — squaring up the extruded aluminium and working out where each part sits
 - started the **CAD design** for the **Raspberry Pi support** — first of the printed mounts
+- more **research and documentation** — reading through the books from the library and writing up the concept
 
 </details>
 
@@ -471,6 +476,7 @@ Informal log of what happened as the project moved forward — meetings, decisio
 
 - started assembling the **frame mount** for all the tiles — parts had come in from the suppliers
 - trip to the **library** — picked up **books** for the concept and documentation side, reading around the ideas behind the piece
+- started **writing up the documentation** from the reading — building out the research for the report
 
 </details>
 
