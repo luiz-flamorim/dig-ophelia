@@ -192,11 +192,7 @@ The Pi runs the **camera processor** — it captures webcam input, applies backg
 | Step        | Command / check                                                     |
 |------------|--------------------------------------------------------------------- |
 | Copy code  | `rsync` or `scp` **from Mac**                                        |
-| Deps       | `sudo apt install python3-opencv python3-numpy v4l-utils`            |
-| USB camera | `lsusb` shows camera device                                          |
-| Video dev  | `v4l2-ctl --list-devices` → note `/dev/video*` for webcam            |
-| Run (dev)  | `python3 debugger.py --index /dev/video0` → browser `:8080`          |
-| Run (install) | `python3 main.py --index /dev/video0`                             |
+| Run        | `python3 main.py --index /dev/video0`                                |
 | New module | change the number of rows on config.py => `INSTALL_MODULES_Y = 2`    |
 
 <details>
@@ -429,6 +425,54 @@ Replace the IP with your Pi address. Expected byte count must match `BYTES_PER_M
 # Journal
 
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
+
+<details>
+<summary>2026-07-17 — Hatch Labs, printing the rest of the supports</summary>
+
+- day at **Hatch Labs** printing the **remaining 3D supports** — the last of the mounts for the frame
+- with these done, every board (Pi, ESPs, router, power supply) will have its own printed home on the aluminium frame
+
+</details>
+
+<details>
+<summary>2026-07-15 — reprints fitted, more tiles soldered</summary>
+
+- **reprinted** the corrected **router** and **power supply** supports — dry-fitted them onto the extruded aluminium frame, sitting properly now
+- back on the bench **soldering more tiles** — up to **20 ready** now for the install
+
+</details>
+
+<details>
+<summary>2026-07-13 — ESP32 supports, cabling</summary>
+
+- designed and **3D printed the ESP32 supports** — small brackets so each board clips onto the frame near its tiles
+- **soldered the cables** and prepped the **connections for all the boards** — tidier power and data runs across the structure
+
+</details>
+
+<details>
+<summary>2026-07-10 — first support printed + corrections, more reading</summary>
+
+- **3D printed** the first **Raspberry Pi support** — fit wasn't quite right, so I **corrected the model** and set it up to reprint
+- more time on **concept and documentation** — writing up notes from the reading into the report
+
+</details>
+
+<details>
+<summary>2026-07-08 — frame continues, first support design</summary>
+
+- kept building out the **frame structure** — squaring up the extruded aluminium and working out where each part sits
+- started the **CAD design** for the **Raspberry Pi support** — first of the printed mounts
+
+</details>
+
+<details>
+<summary>2026-07-06 — frame mount + library research</summary>
+
+- started assembling the **frame mount** for all the tiles — parts had come in from the suppliers
+- trip to the **library** — picked up **books** for the concept and documentation side, reading around the ideas behind the piece
+
+</details>
 
 <details>
 <summary>2026-07-04 — modules 2 & 3, frame, two rows working</summary>
