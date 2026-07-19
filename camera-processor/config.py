@@ -10,7 +10,7 @@ MODULE_TILES_Y = 1
 
 # --- Module layout in the install ---
 INSTALL_MODULES_X = 2
-INSTALL_MODULES_Y = 2
+INSTALL_MODULES_Y = 3
 
 # --- Daisy chain (keep in sync with ESP32 TILE_CHAIN_BLOCK_ORDER) ---
 # True: stream bytes tile-by-tile (tile 0 rows 0–7, then tile 1, …).

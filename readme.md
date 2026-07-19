@@ -427,6 +427,18 @@ Replace the IP with your Pi address. Expected byte count must match `BYTES_PER_M
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
 
 <details>
+<summary>2026-07-19 — five rows built, power and enclosure notes</summary>
+
+- finished soldering and built **3 more rows** — **5 rows in total** now
+- quite a lot of hands-on work putting the displays together and **cutting the legs** after fitting them into the PCB
+- not all the **ESP32s** are in place yet — need to buy **6 more**
+- the **support system** for the devices behind the frame is working well
+- thinking I may need an **acrylic enclosure** for the displays — to be reviewed
+- the **power supply** isn't enough for everything at once — I'll give the **Raspberry Pi** its own dedicated supply and keep the rest separate
+
+</details>
+
+<details>
 <summary>2026-07-17 — Hatch Labs, printing the rest of the supports</summary>
 
 - day at **Hatch Labs** printing the **remaining 3D supports** — the last of the mounts for the frame
