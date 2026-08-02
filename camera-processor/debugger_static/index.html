@@ -34,30 +34,34 @@
     </div>
 
     <div id="controls">
-      <div class="slider-container">
-        <label for="bg-threshold-slider">
-          Threshold <span id="threshold-value">30</span>
-        </label>
-        <div class="slider-wrapper">
-          <input
-            type="range"
-            id="bg-threshold-slider"
-            class="threshold-slider"
-            min="0"
-            max="100"
-            step="1"
-            value="30"
-          />
+      <div id="view-panel" class="tool-panel">
+        <h2 class="panel-label">View</h2>
+
+        <div class="slider-container">
+          <label for="bg-threshold-slider">
+            Threshold <span id="threshold-value">30</span>
+          </label>
+          <div class="slider-wrapper">
+            <input
+              type="range"
+              id="bg-threshold-slider"
+              class="threshold-slider"
+              min="0"
+              max="100"
+              step="1"
+              value="30"
+            />
+          </div>
+        </div>
+
+        <div class="buttons-container">
+          <button id="preview-btn" class="toggle-btn">Processed view</button>
+          <button id="invert-btn" class="toggle-btn">Invert</button>
+          <button id="bg-capture-btn" class="toggle-btn">Capture background</button>
         </div>
       </div>
 
-      <div class="buttons-container">
-        <button id="preview-btn" class="toggle-btn">Processed view</button>
-        <button id="invert-btn" class="toggle-btn">Invert</button>
-        <button id="bg-capture-btn" class="toggle-btn">Capture background</button>
-      </div>
-
-      <div id="probe-panel">
+      <div id="probe-panel" class="tool-panel">
         <div class="probe-header">
           <button id="probe-toggle-btn" class="toggle-btn">Wiring probe</button>
           <span id="probe-status" class="probe-status">off</span>
@@ -67,7 +71,7 @@
           <span>tile <strong id="probe-tile">0</strong></span>
           <span>module <strong id="probe-module">0</strong></span>
         </div>
-        <div id="probe-module-buttons" class="buttons-container probe-buttons"></div>
+        <div id="probe-module-buttons" class="module-grid"></div>
         <div id="probe-mode-buttons" class="buttons-container probe-buttons">
           <button id="probe-mode-cell-btn" class="toggle-btn" data-mode="cell" disabled>Cell</button>
           <button id="probe-mode-row-btn" class="toggle-btn" data-mode="row" disabled>Row</button>

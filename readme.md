@@ -427,6 +427,70 @@ Replace the IP with your Pi address. Expected byte count must match `BYTES_PER_M
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
 
 <details>
+<summary>2026-08-02 — anode jewellery taking shape</summary>
+
+- kept going on the **jewellery for the leftover anodes** — a few pieces starting to look like something I could actually wear or show
+- feels good to turn a hardware mistake into a side strand of the project rather than just scrap
+
+</details>
+
+<details>
+<summary>2026-07-31 — new phase: jewellery from the wrong anodes</summary>
+
+- started a **new phase** — making **jewellery** from the **common-anode** displays I bought by mistake (the ones that shorted the board)
+- first experiments with how to set and wear them — more craft than electronics for a change
+
+</details>
+
+<details>
+<summary>2026-07-29 — frame finishing + anode idea</summary>
+
+- another round of **3D printing** for the **frame finishing** — corners and cover bits; tested on the aluminium and adjusted the model again
+- kept thinking about those **wrong anodes** sitting in a box — maybe they don't have to stay scrap
+
+</details>
+
+<details>
+<summary>2026-07-28 — frame finishing prints</summary>
+
+- **printed and tested** the first **finishing parts** for the **frame structure** — trims and end caps so the install looks less like a prototype
+- a couple of pieces were too tight; marked them up for a reprint tomorrow
+
+</details>
+
+<details>
+<summary>2026-07-26 — supports on the frame for real</summary>
+
+- dry-fitted the **Pi**, **ESP32**, **power supply** and **WiFi** supports behind the frame together — the whole back of the piece is starting to make sense
+- small tweaks still needed, but the layout feels right
+
+</details>
+
+<details>
+<summary>2026-07-24 — more printing, more testing</summary>
+
+- back at the printer — **reprinting** the pieces that didn't sit well yesterday
+- tested the **power supply** and **router** mounts on the extruded aluminium again; almost there
+
+</details>
+
+<details>
+<summary>2026-07-23 — printing Pi and WiFi supports</summary>
+
+- **3D printed** the **Raspberry Pi** and **WiFi** supports and tried them on the frame
+- the Pi one needed a bit more clearance; WiFi mount was fine first time
+
+</details>
+
+<details>
+<summary>2026-07-21 — refining the device supports</summary>
+
+- spent the day developing the **supports** further — **ESP32**, **power supply**, **Pi** and **WiFi** — so everything sits cleanly on the extruded aluminium
+- sketching and adjusting the models before the next print run
+
+</details>
+
+<details>
 <summary>2026-07-19 — five rows built, power and enclosure notes</summary>
 
 - finished soldering and built **3 more rows** — **5 rows in total** now

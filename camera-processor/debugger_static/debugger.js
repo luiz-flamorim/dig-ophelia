@@ -56,46 +56,32 @@ init();
 
 function buildGrid() {
   gridDisplay.innerHTML = "";
-  // Tile-groups span the whole install (all modules), not just one module's
-  // own tile count — otherwise later modules render data but no visible cells.
-  const tilesX = moduleTilesX * installModulesX;
-  const tilesY = moduleTilesY * installModulesY;
+  // Every tile is the same fixed hardware size (tileRows x tileCols), tiled
+  // uniformly across the whole install, so tile boundaries fall on simple
+  // row/col modulo lines — no need to walk tile/module structure separately.
   const showIndices = matrixCols <= 16;
+  const fragment = document.createDocumentFragment();
 
   for (let row = 0; row < matrixRows; row++) {
-    const rowEl = document.createElement("div");
-    rowEl.className = "matrix-row";
+    const atTileBottom = (row + 1) % tileRows === 0 && row !== matrixRows - 1;
 
-    for (let ty = 0; ty < tilesY; ty++) {
-      for (let tx = 0; tx < tilesX; tx++) {
-        const rowInTile = row - ty * tileRows;
-        if (rowInTile < 0 || rowInTile >= tileRows) {
-          continue;
-        }
+    for (let col = 0; col < matrixCols; col++) {
+      const atTileRight = (col + 1) % tileCols === 0 && col !== matrixCols - 1;
 
-        const tileEl = document.createElement("div");
-        tileEl.className = "tile-group";
-        tileEl.dataset.tileX = tx;
-        tileEl.dataset.tileY = ty;
-
-        for (let c = 0; c < tileCols; c++) {
-          const col = tx * tileCols + c;
-          const cell = document.createElement("div");
-          cell.className = "grid-cell";
-          cell.dataset.row = row;
-          cell.dataset.col = col;
-          if (showIndices) {
-            cell.textContent = row * matrixCols + col;
-          }
-          tileEl.appendChild(cell);
-        }
-
-        rowEl.appendChild(tileEl);
+      const cell = document.createElement("div");
+      cell.className = "grid-cell";
+      if (atTileRight) cell.classList.add("tile-edge-right");
+      if (atTileBottom) cell.classList.add("tile-edge-bottom");
+      cell.dataset.row = row;
+      cell.dataset.col = col;
+      if (showIndices) {
+        cell.textContent = row * matrixCols + col;
       }
+      fragment.appendChild(cell);
     }
-
-    gridDisplay.appendChild(rowEl);
   }
+
+  gridDisplay.appendChild(fragment);
 }
 
 function updateSliderFill(slider) {
@@ -111,7 +97,6 @@ function updateSliderFill(slider) {
 function setMatrixLayout(rows, cols) {
   document.documentElement.style.setProperty("--matrix-rows", String(rows));
   document.documentElement.style.setProperty("--matrix-cols", String(cols));
-  document.documentElement.style.setProperty("--tile-cols", String(tileCols));
   document.documentElement.style.setProperty("--cell-aspect-w", String(cellAspectW));
   document.documentElement.style.setProperty("--cell-aspect-h", String(cellAspectH));
 
@@ -120,7 +105,7 @@ function setMatrixLayout(rows, cols) {
   const availableW = Math.max(200, window.innerWidth - horizontalPad);
   const cellWidth = isMobile
     ? Math.max(9, Math.floor(availableW / cols))
-    : Math.max(14, Math.min(18, Math.floor(Math.min(availableW, 640) / cols)));
+    : Math.max(4, Math.min(18, Math.floor(Math.min(availableW, 640) / cols)));
   const cellSize = cellWidth;
   const panelMaxW = cols * cellWidth;
 
@@ -151,10 +136,16 @@ function applyPreviewMode() {
 
 function buildModuleButtons() {
   probeModuleButtonsEl.innerHTML = "";
+  // Arrange module buttons in the same rows/cols as the physical install
+  // (module_id = row * installModulesX + col, per server.py) instead of a
+  // single row — that's unreadable once there are more than a few modules.
+  probeModuleButtonsEl.style.setProperty("--module-cols", String(installModulesX));
+
   for (let i = 0; i < moduleCount; i++) {
     const btn = document.createElement("button");
-    btn.className = "toggle-btn";
-    btn.textContent = `Module ${i}`;
+    btn.className = "toggle-btn module-btn";
+    btn.textContent = String(i);
+    btn.title = `Module ${i}`;
     btn.disabled = true;
     btn.addEventListener("click", async () => {
       try {

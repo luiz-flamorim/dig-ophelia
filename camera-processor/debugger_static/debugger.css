@@ -10,7 +10,6 @@
   --text-2: #e0e0e0;
   --matrix-rows: 8;
   --matrix-cols: 16;
-  --tile-cols: 16;
   --cell-aspect-w: 1;
   --cell-aspect-h: 2;
   --cell-size: 14px;
@@ -119,44 +118,32 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display: grid;
+  grid-template-columns: repeat(var(--matrix-cols), 1fr);
+  grid-template-rows: repeat(var(--matrix-rows), 1fr);
+  gap: 1px;
   padding: 6px;
   z-index: 2;
 }
 
-.matrix-row {
-  display: flex;
-  flex: 1;
-  gap: 6px;
-  min-height: 0;
-}
-
-.tile-group {
-  display: flex;
-  flex: 1;
-  justify-content: center;
-  gap: 2px;
-  min-width: 0;
-  min-height: 0;
-  /* padding: 2px; */
-  background: rgba(255, 255, 255, 0.03);
-  /* border: 1px solid rgba(255, 255, 255, 0.08); */
-}
-
 .grid-cell {
   display: flex;
-  flex: 0 0 auto;
-  height: 100%;
-  aspect-ratio: var(--cell-aspect-w) / var(--cell-aspect-h);
   align-items: center;
   justify-content: center;
-  min-width: 0;
   font-size: clamp(0.35rem, calc(var(--cell-size) * 0.45), 0.55rem);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #666;
   background: transparent;
+}
+
+/* Thicker line marks the physical boundary between tiles, so the hardware
+   layout stays legible even once individual cells get too small to read. */
+.grid-cell.tile-edge-right {
+  border-right: 2px solid rgba(255, 255, 255, 0.35);
+}
+
+.grid-cell.tile-edge-bottom {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.35);
 }
 
 .grid-cell.active {
@@ -171,22 +158,24 @@ body {
   box-shadow: 0 0 6px rgba(232, 192, 64, 0.6);
 }
 
-#probe-panel {
+.tool-panel {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 12px;
   border: 1px solid var(--color-4);
   background: var(--color-2);
 }
 
-#probe-panel.disabled {
-  opacity: 0.55;
+.tool-panel > .panel-label {
+  margin-bottom: -4px;
 }
 
 .probe-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 8px;
 }
 
 #probe-toggle-btn.active {
@@ -209,7 +198,6 @@ body {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 12px;
 }
 
 #probe-readout strong {
@@ -220,6 +208,35 @@ body {
 .probe-buttons .toggle-btn {
   min-width: 0;
   flex: 1;
+}
+
+/* Module picker mirrors the physical install layout (module_id = row *
+   installModulesX + col) instead of a single row of N buttons, which stops
+   being usable once there are more than a handful of modules. */
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--module-cols, 4), 1fr);
+  gap: 6px;
+}
+
+.module-btn {
+  min-width: 0;
+  padding: 8px 4px;
+  aspect-ratio: 1.6 / 1;
+}
+
+.toggle-btn:disabled {
+  cursor: not-allowed;
+}
+
+.toggle-btn:disabled:hover {
+  background-color: var(--color-3);
+  color: var(--text-1);
+}
+
+.toggle-btn.active:disabled:hover {
+  background-color: var(--color-5);
+  color: var(--color-8);
 }
 
 body.probe-mode #controls .slider-container,
@@ -393,23 +410,23 @@ label {
 }
 
 @media (max-width: 700px) {
-  html,
-  body {
-    height: 100dvh;
-    overflow: hidden;
-  }
-
+  /* The full control set (view panel + probe panel with a module grid) is
+     taller than any fixed "leftover space" guess, so the page scrolls on
+     mobile instead of locking to 100dvh — a fixed-height lock previously
+     pushed the controls off-screen with no way to reach them. The matrix
+     preview is sized off a fixed viewport fraction (see #matrix-view)
+     instead of the remaining space, so it stays a reasonable size
+     regardless of how tall the controls end up being. */
   body {
     justify-content: flex-start;
     align-items: stretch;
     padding: max(6px, env(safe-area-inset-top)) 6px
-      max(6px, env(safe-area-inset-bottom));
-    gap: 6px;
+      max(10px, env(safe-area-inset-bottom));
+    gap: 10px;
   }
 
   #page-header {
     max-width: none;
-    flex-shrink: 0;
   }
 
   #title {
@@ -436,8 +453,6 @@ label {
   }
 
   #main-layout {
-    flex: 1 1 auto;
-    min-height: 0;
     padding: 0;
     margin: 0;
     gap: 0;
@@ -446,8 +461,6 @@ label {
   #matrix-panel {
     width: 100%;
     max-width: none;
-    flex: 1;
-    min-height: 0;
     gap: 0;
     justify-content: center;
   }
@@ -461,11 +474,11 @@ label {
       100%,
       var(--matrix-panel-max-w),
       calc(
-        (100dvh - 150px) * var(--matrix-cols) * var(--cell-aspect-w) /
+        42dvh * var(--matrix-cols) * var(--cell-aspect-w) /
           (var(--matrix-rows) * var(--cell-aspect-h))
       )
     );
-    max-height: calc(100dvh - 150px);
+    max-height: 42dvh;
     height: auto;
     border-left: none;
     border-right: none;
@@ -473,20 +486,16 @@ label {
 
   #grid-display {
     padding: 4px;
-    gap: 2px;
-  }
-
-  .matrix-row {
-    gap: 4px;
-  }
-/* 
-  .tile-group {
     gap: 1px;
-    padding: 1px;
-  } */
+  }
 
   .grid-cell {
     font-size: 0;
+    border-width: 1px;
+  }
+
+  .grid-cell.tile-edge-right,
+  .grid-cell.tile-edge-bottom {
     border-width: 1px;
   }
 
@@ -523,7 +532,8 @@ label {
     text-align: center;
   }
 
-  #probe-panel {
+  .tool-panel {
+    gap: 8px;
     padding: 8px 4px;
   }
 
@@ -539,5 +549,15 @@ label {
   .probe-buttons .toggle-btn {
     max-width: none;
     font-size: 0.55rem;
+  }
+
+  .module-grid {
+    gap: 4px;
+  }
+
+  .module-btn {
+    max-width: none;
+    padding: 6px 4px;
+    font-size: 0.65rem;
   }
 }
