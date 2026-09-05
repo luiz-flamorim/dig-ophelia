@@ -1,6 +1,8 @@
 # Dig Ophelia
 
 [![Project website](https://img.shields.io/badge/Project_website-lamorim.art%2Fdigophelia-black?style=for-the-badge)](https://lamorim.art/digophelia)
+</br>
+[![Project video](https://img.shields.io/badge/Project_video-vimeo-1ab7ea?style=for-the-badge&logo=vimeo&logoColor=white)](https://vimeo.com/1224216391?share=copy&fl=sv&fe=ci)
 
 Dig Ophelia is an interactive computational artwork built around one question: **how far can I abstract before I lose myself?**
 
