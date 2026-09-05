@@ -1,27 +1,35 @@
-# Plan
+# Dig Ophelia
 
-Roadmap for scaling the camera processor from proof of concept to the full install. ESP32 grid dimensions must match the Pi (see `display-controller/config.example.h`).
+[![Project website](https://img.shields.io/badge/Project_website-lamorim.art%2Fdigophelia-black?style=for-the-badge)](https://lamorim.art/digophelia)
+
+Dig Ophelia is an interactive computational artwork built around one question: **how far can I abstract before I lose myself?**
+
+The installation is a computational mirror. A USB webcam captures the viewer; a Raspberry Pi reduces that feed to a binary presence mask via background subtraction and thresholding, then downsamples and bit-packs it into a compact frame; a network of ESP32 microcontrollers polls the Pi over HTTP/Wi-Fi and renders that frame across a matrix of custom PCB modules, each built from seven-segment LED tiles. The result reads as a body, but an incomplete one — fragmented into numerical light, bounded by display resolution, threshold sensitivity, and the frame rate the hardware can sustain.
+
+The project explores self-recognition through abstraction rather than accurate reproduction. Dig Ophelia progressively strips information from the image and asks at what point a representation stops feeling like oneself. Distance, movement, ambient light, and the system's own computational errors all act on this process, letting a body emerge, fragment, or disappear entirely.
+
+Technically, the system spans three layers: computer vision, embedded firmware, and custom electronics. A Raspberry Pi runs the vision pipeline in Python (OpenCV, V4L2 webcam capture) and exposes it as an HTTP API — it processes frames but never drives the display directly. Each ESP32 module polls that API for its own slice of the frame and drives its seven-segment tiles accordingly, so the display is a distributed system rather than a single controller. Hardware and software were developed iteratively together — prototyping, soldering, PCB failures, Wi-Fi/networking experiments, firmware rewrites — with failure treated as load-bearing to both the engineering and the artistic process, not just a cost of building it.
+
 
 ### Vocabulary
 
 | Term | Meaning |
 |------|---------|
 | **Tile** | One **8×16** slice of the camera mask (128 cells, **16 bytes** packed) |
-| **Module** | One physical panel, **one ESP32** — **current test: 2×1 tiles** (**8×32** cells, **32 bytes**)|
-| **Install** | How many modules and how they are arranged (side by side, stacked, etc.) |
-
-One module on the display (current 2-tile test; full row is 4 tiles):
+| **Module** | Two tiles, **one ESP32** (**8×32** cells, **32 bytes**)|
+| **Install** | 24 Displays, 12 modules arranged in 2×6 |
 
 ```text
        ┌─> chain start
 ┌─────┬─────┐
-│ t1  │ t0  │   ← current test (2 tiles, 32 bytes)
+│ t1  │ t0  │   ← 2 tiles per module, 32 bytes — fixed unit
 └─────┴─────┘
 | Module #0 |
 
 → one payload → one ESP32
 
-Full PCB row (target): add two tiles on the right → 64 bytes, same module
+Scaling is via more modules (see Phase 3/4 below), not longer tile chains —
+4 tiles on one ESP32 hit an RF-interference wall, see 2026-07-01 journal.
 ```
 
 
@@ -47,7 +55,7 @@ Adapting the code from the browser / p5.js proof of concept into a Pi-based prod
 - **One ESP32** pulls its message from the Pi API by **module ID** (`GET /api/module/0`)
 - ESP32 constants scale to the module grid (**8 rows × 32 cols**) — same bit-packing logic, larger buffer than Phase 1
 - **`TILE_MIRROR_X = True`** on Pi and ESP32 — chain tile 0 is the **rightmost** column (matches PCB wiring)
-- Full **4×1** row on one module is the next hardware step on the same PCB — bump `MODULE_TILES_X` to **4** → **64 bytes**, same pipeline
+- ~~Full **4×1** row on one module considered as the next hardware step~~ — **superseded**: 4 tiles on one ESP32 hit an RF-interference wall (see 2026-07-01 journal), so the module stayed at **2×1** and scaling continued via **more modules** instead (Phase 3/4)
 
 ```text
 ┌─────┬─────┐
@@ -98,7 +106,7 @@ Each board needs its own **`MODULE_ID`** (`0` and `1`) in `display-controller/co
 </details>
 
 <details>
-<summary>Phase 4 — More rows</summary>
+<summary>Phase 4 — More rows **(Complete)**</summary>
 
 - Stack **additional modules below** — same processing code, one ESP32 per module
 - Target: **6 rows × 2 modules** → **24 tiles**, **12 ESP32s** (`MODULE_ID` **0–11**)
@@ -150,21 +158,12 @@ Install grid: **48×64** cells (8 rows per module × 6 module-rows; 32 cols per 
 </details>
 
 <details>
-<summary>Later — more modules **(to review)**</summary>
+<summary>Future - After September 2026</summary>
 
-Scale by changing install layout only — no new processing pipeline:
-
-- One camera → one mask → split into tiles per module → pack per module → API by module ID
-- Example: `INSTALL_MODULES_X = 2`, `INSTALL_MODULES_Y = 2` → four modules, four ESP32s
-- **User detection** — idle when no one is present, active when someone steps in. No debugger or manual background capture in the live install. Options to explore (same mask → grid → pack pipeline; only the mask source changes):
-
-- **ML person segmentation** (ML5-style — e.g. MediaPipe selfie segmentation, TFLite BodyPix-class models; target **Pi 5**) — no stored background; empty room = idle naturally
-- **Presence gate** — keep current background subtraction; blank the grid unless enough mask cells / contour area exceed a threshold
-- **Adaptive background** — OpenCV `BackgroundSubtractorMOG2` / KNN; learns the empty scene over time, no fixed snapshot
-- **Auto-recapture when idle** — refresh the background snapshot after N seconds with no significant motion
-- **Motion trigger** — frame differencing only; idle until movement, then show disturbance (lo-fi, no background model)
-
-Pi 5 is sufficient for this; the work is mostly config, crop/split math, and the module API.
+- Add a feature to keep the static frame as a file, so if the Pi needs refresh, it can pull up the frame instead of taking a new shot. This should be useful in a gallery situation, where the scene is probably never clean.
+- wiring instead of router. The router suffers from intereference on its signal, resulting in lost of connection. Ideally, I need to eliminate the router, and wire the signal, which may make the whole experience more robust.
+- I am envisioning using a lidar cam, but this should be tested first. The unexpected features captured by the webcam were absolutely fantastic for interactivity.
+- think about glitches.
 
 </details>
 
@@ -176,14 +175,8 @@ Pi 5 is sufficient for this; the work is mostly config, crop/split math, and the
 The Pi runs the **camera processor** — it captures webcam input, applies background subtraction, and prepares binary frames for the ESP32 display controller. This section holds everything needed to **install, deploy, and maintain** that setup on the device.
 
 **Pi 5** (primary — dev and install)
-- home `luizamorim@192.168.1.234`
 - opal `luizamorim@192.168.8.107`
 - hostname: `pi5`
-
-**Pi Zero 2W** (spare)
-- home `luizamorim@192.168.1.157`
-- opal `luizamorim@192.168.8.117`
-- hostname: `pizero`
 
 (Opal IPs are DHCP — check the router client list or `hostname -I` on the Pi if SSH fails.)
 
@@ -356,7 +349,7 @@ The **display controller** firmware lives in `display-controller/` at the repo r
 
 | Step       | Command / check                                              |
 |-----------|--------------------------------------------------------------|
-| Config    | Copy `config.example.h` → `config.h` (gitignored)            |
+| Config    | Copy `config.example.h` → `config.h`            |
 | Layout    | `MODULE_TILES_X/Y` match Pi; set `MODULE_ID` per board       |
 | SPI       | `SPI_CLOCK_HZ` in `config.h` — lower (e.g. `250000`) if digits drop out on longer chains |
 | Network   | `WIFI_SSID`, `WIFI_PASS`, `PI_HOST` (Pi IP on same WiFi)    |
@@ -425,6 +418,17 @@ Replace the IP with your Pi address. Expected byte count must match `BYTES_PER_M
 # Journal
 
 Informal log of what happened as the project moved forward — meetings, decisions, hardware mistakes, code experiments, that kind of thing. I'm capturing these entries here to help me formulate my ideas for the writing report later, so when I sit down to write I don't have to reconstruct everything from memory.
+
+<details>
+<summary>2026-09-05 — first delivery complete, 3-day exhibit wrapped</summary>
+
+- **first delivery of the project is done** — the install went through a **3-day exhibit**
+- treating this as a natural pause point: **Phase 4** is complete, and the next round of work picks up with the items under **"Future - After September 2026"**
+- did a general pass checking over the project files — everything's in order and accounted for before stepping away
+- git repo is in a clean, consistent state as far as I can tell
+- fuller conclusions and reflections on how the exhibit went will go into the **university documentation/writeup**, not here
+
+</details>
 
 <details>
 <summary>2026-08-02 — anode jewellery taking shape</summary>
