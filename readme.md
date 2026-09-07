@@ -415,7 +415,25 @@ Replace the IP with your Pi address. Expected byte count must match `BYTES_PER_M
 <br>
 <br>
 
+# Usage
 
+Steps to bring the installation live once everything is deployed and wired up: SSH into the Pi and start the camera processor, which captures the webcam, runs the mask pipeline, and serves both the ESP32 API and the debugger UI from one process. The ESP32 modules connect automatically once the Pi is running and reachable on the same WiFi network — no action needed on their end.
+
+```
+ssh luizamorim@192.168.8.107
+cd ~/camera-processor
+python3 main.py
+```
+
+### Opening the debugger
+
+With `main.py` running, open a browser on any device on the same network and go to:
+
+```
+http://192.168.8.107:8080
+```
+
+This loads the live debugger UI — the same page described in the Raspberry Pi section above, for adjusting the background threshold, inverting the mask, recapturing the background plate, and probing individual modules/tiles while the piece is live.
 
 # Journal
 
